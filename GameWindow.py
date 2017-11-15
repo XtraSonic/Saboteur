@@ -22,8 +22,8 @@ pygame.display.set_caption("Saboteur")
 
 CARD_AREA_BACKGROUND_FILE = "Resources/CardAreaBackground.png"
 PLAYER_LIST_AREA_BACKGROUND_FILE = "Resources/PlayerListBackground.png"
-#PATH_CARD_BACK_FILE = "Resources/PathBack.jpg"
-PATH_CARD_BACK_FILE = "Resources/Coal.jpg"
+PATH_CARD_BACK_FILE = "Resources/PathBack.jpg"
+#PATH_CARD_BACK_FILE = "Resources/Coal.jpg"
 
 
 #################################################################
@@ -58,12 +58,12 @@ card_area_background = pygame.image.load(CARD_AREA_BACKGROUND_FILE)
 card_area_background = pygame.transform.smoothscale(card_area_background, card_area_size)
 
 # Player List Area
-player_list_area_percentage = array((0.15, 1))
-player_list_area_size = convert_to_int_tuple(screen_size * player_list_area_percentage)
-player_list_area_position = (screen_size[0] - player_list_area_size[0] - 1, 0)
-player_list_area = Rect(player_list_area_position, player_list_area_size)
-player_list_background = pygame.image.load(PLAYER_LIST_AREA_BACKGROUND_FILE)
-player_list_background = pygame.transform.smoothscale(player_list_background, player_list_area_size)
+name_list_area_percentage = array((0.15, 1))
+name_list_area_size = convert_to_int_tuple(screen_size * name_list_area_percentage)
+name_list_area_position = (screen_size[0] - name_list_area_size[0] - 1, 0)
+name_list_area = Rect(name_list_area_position, name_list_area_size)
+name_list_area_background = pygame.image.load(PLAYER_LIST_AREA_BACKGROUND_FILE)
+name_list_area_background = pygame.transform.smoothscale(name_list_area_background, name_list_area_size)
 
 # Board Area
 board_area_percentage = array((0.7, 1))
@@ -94,7 +94,6 @@ class Card:
 #################################################################
 #                          Board Class                          #
 #################################################################
-
 class Board:
 
     def __init__(self, board_cell_numbers=None):
@@ -105,11 +104,12 @@ class Board:
         else:
             self.board_cell_numbers = board_cell_numbers
         self.card_size = board_area_size // self.board_cell_numbers
+        # TODO change the cards to path cards
         # create a grid with the specified dimensions, but no lower than 5 width and 9 height
         self.grid = [[Card(self.card_size, PATH_CARD_BACK_FILE)
                       for x in range(max(self.board_cell_numbers[0], 9))]
                      for y in range(max(self.board_cell_numbers[1], 5))]
-        self.board_surface = pygame.Surface(board_area_size).convert()
+        self.board_surface = pygame.Surface(self.card_size*self.board_cell_numbers).convert()
 
     def draw_board(self):
         for i in range(len(self.grid)):
@@ -125,8 +125,10 @@ b = Board()
 b.draw_board()
 
 screen.blit(card_area_background, card_area_position)
-screen.blit(player_list_background, player_list_area_position)
-screen.blit(b.board_surface, board_area_position)
+screen.blit(name_list_area_background, name_list_area_position)
+
+board_area = pygame.transform.smoothscale(b.board_surface, board_area_size)
+screen.blit(board_area, board_area_position)
 pygame.display.update()
 
 # clock.tick(1)
