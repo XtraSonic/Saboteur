@@ -107,8 +107,8 @@ class Board:
         # TODO change the cards to path cards
         # create a grid with the specified dimensions, but no lower than 5 width and 9 height
         self.grid = [[Card(self.card_size, PATH_CARD_BACK_FILE)
-                      for x in range(max(self.board_cell_numbers[0], 9))]
-                     for y in range(max(self.board_cell_numbers[1], 5))]
+                      for _ in range(max(self.board_cell_numbers[0], 9))]
+                     for _ in range(max(self.board_cell_numbers[1], 5))]
         self.board_surface = pygame.Surface(self.card_size*self.board_cell_numbers).convert()
 
     def draw_board(self):
