@@ -9,6 +9,8 @@ Classes included:
 """
 
 # defaults set for possible future updates
+import copy
+
 NUMBER_OF_GOALS = 3
 
 
@@ -163,8 +165,9 @@ class PathCard(Card):
         """
         self.end_reached[index] = True
 
-    def reset_end(self, index):
-        self.end_reached[index] = False
+    def reset_end(self):
+        for index in range(len(self.end_reached)):
+            self.end_reached[index] = False
 
     def rotate180(self):
         self.north ^= self.south
@@ -205,9 +208,10 @@ class GoalCard(PathCard):
         self.index = index
         self.end_reached[self.index] = True
 
-    def reset_end(self, index):
-        if index != self.index:
+    def reset_end(self):
+        for index in range(len(self.end_reached)):
             self.end_reached[index] = False
+        self.end_reached[self.index] = True
 
 
 class StartCard(PathCard):
@@ -216,10 +220,6 @@ class StartCard(PathCard):
     def __init__(self):
         super().__init__(True, True, True, True, True, True)
         self.card_type = StartCard.START
-
-    def mark_end(self, index):
-        # TODO
-        pass
 
 
 ########################################################################################################################
@@ -284,6 +284,25 @@ class Board:
                     print("_____", end=" ")
             print()
 
+    def print_board_with_ends(self):
+        for j in range(self.board_cell_nr_width_height[1]):  # width
+            for i in range(self.board_cell_nr_width_height[0]):  # height
+                if self.grid[i][j].is_initialized() and (self.grid[i][j].card_type == PathCard.PATH or
+                                                         self.grid[i][j].card_type == GoalCard.GOAL):
+                    if self.grid[i][j].is_initialized():
+                        for k in range(len(self.grid[i][j].end_reached)):
+                            if self.grid[i][j].end_reached[k]:
+                                print(k, end=" ")
+                            else:
+                                print("_", end=" ")
+                    else:
+                        print("({0},{1})".format(i, j), end=" ")
+                elif self.grid[i][j].card_type == StartCard.START:
+                    print("START", end=" ")
+                else:
+                    print("_____", end=" ")
+            print()
+
     def get_all_valid_moves(self, card):
         """"
         Parameters
@@ -314,24 +333,23 @@ class Board:
         for location in self.placed_cards_locations_list:
             for offset in Board.NEIGHBOURS:
                 pos = add_tuples(location, offset)
-                if pos not in result and self.fits(card, pos[0], pos[1]):
+                if pos not in result and self.fits(card, pos):
                     result.append(pos)
 
         return result
 
-    def fits(self, card, x, y):
+    def fits(self, card, location):
         """"
         Parameters
         ----------
         card:PathCard
             the card for which to search the valid moves
-        x:int
-            the position on the printed X axis (width related)
-        y:int
-            the position on the printed Y axis (height related)
+        location:int tuple
+            location[0] = the position on the printed X axis (width related)
+            location[1] = the position on the printed Y axis (height related)
         """
 
-        if self.grid[x][y].is_initialized():
+        if self.grid[location[0]][location[1]].is_initialized():
             return False  # an initialized card already exists in the location we want to place "card"
 
         connected_to_road = False
@@ -348,12 +366,11 @@ class Board:
         # basically, if you place a card next to a goal, you HAVE to reveal it
         # since i don`t want to make x images (where x > 0) for each case, i`ll call this a FEATURE :)
         for i in range(len(Board.NEIGHBOURS)):
-            t = Board.NEIGHBOURS[i]
-            pos_x = x + t[0]
-            pos_y = y + t[1]
+            offset = Board.NEIGHBOURS[i]
+            pos_x, pos_y = add_tuples(location, offset)
 
             # if neighbour is inside the matrix and is initialized
-            if self.is_inside(pos_x, pos_y) and self.grid[pos_x][pos_y].is_initialized():
+            if self.is_inside((pos_x, pos_y)) and self.grid[pos_x][pos_y].is_initialized():
                 if card_cardinals[i] != self.grid[pos_x][pos_y].get_cardinals()[compare_with_index[i]]:
                     return False
                 else:
@@ -369,24 +386,109 @@ class Board:
 
         return connected_to_road
 
-    def is_inside(self, x, y):
+    def is_inside(self, location):
         """"
         Parameters
         ----------
-        x:int
-            the position on the printed X axis (width related)
-        y:int
-            the position on the printed Y axis (height related)
+        location:int tuple
+            location[0] = the position on the printed X axis (width related)
+            location[1] = the position on the printed Y axis (height related)
         """
-        return 0 <= x < self.board_cell_nr_width_height[0] and 0 <= y < self.board_cell_nr_width_height[1]
+        return 0 <= location[0] < self.board_cell_nr_width_height[0] and 0 <= location[1] < \
+               self.board_cell_nr_width_height[1]
 
+    def remove_path(self, location):
+        removed_card = self.grid[location[0]][location[1]]
+        if removed_card.card_type == StartCard.START or \
+                removed_card.card_type == GoalCard.GOAL:
+            return False
+
+        self.grid[location[0]][location[1]] = PathCard()
+
+        self.placed_cards_locations_list.remove(location)
+        for offset in Board.NEIGHBOURS:
+            neighbour = add_tuples(location, offset)
+            self.reset_spread(neighbour)
+
+        return True
+
+    def spread_mark(self, location, index):
+        if not self.is_inside(location):
+            return
+
+        spread_card = self.grid[location[0]][location[1]]
+        if not spread_card.is_initialized() or spread_card.end_reached[index]:
+            return
+
+        spread_card.mark_end(index)
+        for offset in Board.NEIGHBOURS:
+            neighbour = add_tuples(location, offset)
+            self.spread_mark(neighbour, index)
+
+        if spread_card.card_type == GoalCard.GOAL:
+            for offset in Board.NEIGHBOURS:
+                neighbour = add_tuples(location, offset)
+                self.spread_mark(neighbour, spread_card.index)
+
+    def reset_spread(self, location):
+        if not self.is_inside(location):
+            return
+
+        reset_card = self.grid[location[0]][location[1]]
+        if not reset_card.is_initialized() or (not any(reset_card.end_reached) and
+                                               reset_card.card_type == PathCard.PATH):
+            return
+
+        if reset_card.card_type == GoalCard.GOAL:
+            done = True
+            for i in range(len(reset_card.end_reached)):
+                if reset_card.end_reached[i] and i != reset_card.index:
+                    done = False
+                    break
+            if done:
+                return
+
+        reset_card.reset_end()
+        for offset in Board.NEIGHBOURS:
+            neighbour = add_tuples(location, offset)
+            self.reset_spread(neighbour)
+
+        if reset_card.card_type == GoalCard.GOAL:
+            for offset in Board.NEIGHBOURS:
+                neighbour = add_tuples(location, offset)
+                self.spread_mark(neighbour, reset_card.index)
+
+    def place_card(self, card, location):
+        if not card.is_initialized():
+            return -2
+
+        if not self.fits(card, location):
+            return -1
+
+        self.grid[location[0]][location[1]] = card
+        self.placed_cards_locations_list.append(location)
+
+        for offset in Board.NEIGHBOURS:
+            neighbour = add_tuples(location, offset)
+            if self.is_inside(neighbour) and self.grid[neighbour[0]][neighbour[1]].is_initialized():
+                for index in range(len(self.grid[neighbour[0]][neighbour[1]].end_reached)):
+                    if not card.end_reached[index] and self.grid[neighbour[0]][neighbour[1]].end_reached[index]:
+                        self.spread_mark(location, index)
+                    if card.end_reached[index] and not self.grid[neighbour[0]][neighbour[1]].end_reached[index]:
+                        self.spread_mark(neighbour, index)
+
+        # TODO
+        # self.check_end()
 
 b = Board()
 
 # this for the extra path beneath start N S E W, if you want more cards, add them to placed_bla bla as well
-# TODO HERE :D
-b.grid[4][2] = PathCard(True, False, True, False, True)
-b.placed_cards_locations_list.append((4, 2))
+
+# b.grid[4][2] = PathCard(True, False, True, False, True)
+# b.placed_cards_locations_list.append((4, 2))
+
+# b.remove_path((4, 2))
+
 
 p = [[None for _ in range(50)] for _ in range(5)]
 p[1][1] = PathCard(True, True, True, True, False)
@@ -409,13 +511,25 @@ p[2][4] = PathCard(True, False, False, False, False)
 p[3][4] = PathCard(False, True, False, False, False)
 p[4][4] = PathCard(False, False, False, False, False)
 
-for i_ in range(5):
-    for j_ in range(5):
-        if i_ != 0 and j_ != 0:
-            print(b.get_all_valid_moves(p[i_][j_]), p[i_][j_].get_cardinals_string())
-
+# for i_ in range(5):
+#     for j_ in range(5):
+#         if i_ != 0 and j_ != 0:
+#             print(b.get_all_valid_moves(p[i_][j_]), p[i_][j_].get_cardinals_string())
+NSEW = p[1][1]
+b.place_card(copy.deepcopy(NSEW), (4, 2))
+b.place_card(copy.deepcopy(NSEW), (4, 3))
+b.place_card(copy.deepcopy(NSEW), (4, 4))
+b.place_card(copy.deepcopy(NSEW), (4, 5))
+b.place_card(copy.deepcopy(NSEW), (4, 6))
+b.place_card(copy.deepcopy(NSEW), (4, 7))
+b.place_card(copy.deepcopy(NSEW), (4, 8))
+b.place_card(copy.deepcopy(NSEW), (5, 8))
+b.place_card(copy.deepcopy(NSEW), (6, 8))
+b.remove_path((4, 8))
+b.place_card(copy.deepcopy(NSEW), (4, 8))
 print()
 b.print_board_with_coords()
+b.print_board_with_ends()
 ########################################################################################################################
 #                                               Deck Class                                                             #
 ########################################################################################################################
@@ -458,9 +572,3 @@ class Model:
     def __init__(self):
         # TODO
         pass
-
-
-# BOOOOOOOOO
-
-def test_git():
-    pass
