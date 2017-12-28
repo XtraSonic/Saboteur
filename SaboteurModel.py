@@ -12,6 +12,14 @@ Classes included:
 NUMBER_OF_GOALS = 3
 
 
+# convenience function, but numpy might be better
+def add_tuples(a, b):
+    c = ()
+    for i in range(min(len(a), len(b))):
+        c += (a[i] + b[i],)
+    return c
+
+
 ########################################################################################################################
 #                                               Card + extensions                                                      #
 ########################################################################################################################
@@ -24,23 +32,23 @@ class Card:
     TYPE = 3
     VALID_TYPES = [PLACEHOLDER, DEMOLISH, SPY, TYPE, None]
     """
-        Attributes
-        ----------
-        card_type:int
-            is a number representing the type
-        revealed:bool
-            true if the card is visible
-        """
+    Attributes
+    ----------
+    card_type:int
+        is a number representing the type
+    revealed:bool
+        true if the card is visible
+    """
 
     def __init__(self, card_type=None, revealed=None):
         """"
-                Parameters
-                ----------
-                card_type:int
-                    is a number representing the type, default is None
-                revealed:bool
-                    true if the card is visible, default is True
-                """
+        Parameters
+        ----------
+        card_type:int
+            is a number representing the type, default is None
+        revealed:bool
+            true if the card is visible, default is False
+        """
 
         try:
             self.VALID_TYPES.index(card_type)
@@ -50,7 +58,7 @@ class Card:
             print("ERROR: Invalid card type ! Value will be set to \"None\" \nMessage:", e)
 
         if revealed is None:
-            self.revealed = True
+            self.revealed = False
         else:
             self.revealed = revealed
 
@@ -76,15 +84,15 @@ class BlockUnblockCard(Card):
 
     def __init__(self, card_subtype, block=None, revealed=None):
         """"
-                Parameters
-                ----------
-                card_subtype:int
-                    a number representing the card subtype
-                block:bool
-                    true is the card is a block card, default is False => unblock card
-                revealed:bool
-                    true if the card is visible, default is True
-                """
+        Parameters
+        ----------
+        card_subtype:int
+            a number representing the card subtype
+        block:bool
+            true is the card is a block card, default is False => unblock card
+        revealed:bool
+            true if the card is visible, default is False
+        """
 
         super().__init__(Card.PLACEHOLDER, revealed)
         if block is None or block is False:
@@ -113,23 +121,23 @@ class BlockUnblockCard(Card):
 class PathCard(Card):
     PATH = 6
 
-    def __init__(self, north, south, est, west, center, revealed=None):
+    def __init__(self, north=None, south=None, est=None, west=None, center=None, revealed=None):
         """"
-                Parameters
-                ----------
-                north:bool or None
-                    true if card has path to north, None if card is not set yet
-                south:bool or None
-                    true if card has path to south, None if card is not set yet
-                est:bool or None
-                    true if card has path to est, None if card is not set yet
-                west:bool or None
-                    true if card has path to west, None if card is not set yet
-                center:bool or None
-                    true if card is a connected road, False if it is a dead end, None if card is not set yet
-                revealed:bool
-                    true if the card is visible, default is True
-                """
+        Parameters
+        ----------
+        north:bool or None
+            true if card has path to north, None if card is not set yet
+        south:bool or None
+            true if card has path to south, None if card is not set yet
+        est:bool or None
+            true if card has path to est, None if card is not set yet
+        west:bool or None
+            true if card has path to west, None if card is not set yet
+        center:bool or None
+            true if card is a connected road, False if it is a dead end, None if card is not set yet
+        revealed:bool
+            true if the card is visible, default is False
+        """
         super().__init__(Card.PLACEHOLDER, revealed)
         self.card_type = PathCard.PATH
 
@@ -140,6 +148,11 @@ class PathCard(Card):
         self.center = center
 
         self.end_reached = [False for _ in range(NUMBER_OF_GOALS)]
+
+    def is_initialized(self):
+        if self.north is None or self.south is None or self.est is None or self.west is None or self.center is None:
+            return False
+        return True
 
     def mark_end(self, index):
         """"
@@ -166,6 +179,9 @@ class PathCard(Card):
         return (self.north == self.south) and (self.est == self.west)
 
     def get_cardinals(self):
+        return self.north, self.south, self.est, self.west, self.center
+
+    def get_cardinals_string(self):
         cardinals = list("_____")
         if self.north:
             cardinals[0] = "N"
@@ -216,7 +232,7 @@ class Board:
     MINIMUM_BOARD_SIZE = (5, 9)
     DEFAULT_BOARD_SIZE = (9, 11)
     #              North   South    Est     West
-    NEIGHBOURS = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+    NEIGHBOURS = [(0, -1), (0, 1), (1, 0), (-1, 0)]
 
     def __init__(self, board_cell_nr_width_height=None):
         if board_cell_nr_width_height is None:
@@ -224,7 +240,7 @@ class Board:
         else:
             self.board_cell_nr_width_height = board_cell_nr_width_height
         #                      North  South  Est    West   Center Revealed
-        self.grid = [[PathCard(None, None, None, None, None, False)
+        self.grid = [[PathCard()
                       for _ in range(max(self.board_cell_nr_width_height[1], Board.MINIMUM_BOARD_SIZE[1]))]
                      for _ in range(max(self.board_cell_nr_width_height[0], Board.MINIMUM_BOARD_SIZE[0]))]
 
@@ -232,6 +248,7 @@ class Board:
         start_position_height = (self.board_cell_nr_width_height[1] - 9) // 2
 
         self.grid[start_position_width][start_position_height] = StartCard()
+        self.placed_cards_locations_list = [(start_position_width, start_position_height)]
 
         left_goal_position_width = start_position_width - NUMBER_OF_GOALS + 1
         left_goal_position_height = start_position_height + 8
@@ -242,7 +259,7 @@ class Board:
         for j in range(self.board_cell_nr_width_height[1]):  # width
             for i in range(self.board_cell_nr_width_height[0]):  # height
                 if self.grid[i][j].card_type == PathCard.PATH:
-                    print(self.grid[i][j].get_cardinals(), end=" ")
+                    print(self.grid[i][j].get_cardinals_string(), end=" ")
                 elif self.grid[i][j].card_type == GoalCard.GOAL:
                     print("_GOAL", end=" ")
                 elif self.grid[i][j].card_type == StartCard.START:
@@ -251,38 +268,80 @@ class Board:
                     print("_____", end=" ")
             print()
 
+    def print_board_with_coords(self):
+        for j in range(self.board_cell_nr_width_height[1]):  # width
+            for i in range(self.board_cell_nr_width_height[0]):  # height
+                if self.grid[i][j].card_type == PathCard.PATH:
+                    if self.grid[i][j].is_initialized():
+                        print(self.grid[i][j].get_cardinals_string(), end=" ")
+                    else:
+                        print("({0},{1})".format(i, j), end=" ")
+                elif self.grid[i][j].card_type == GoalCard.GOAL:
+                    print("_GOAL", end=" ")
+                elif self.grid[i][j].card_type == StartCard.START:
+                    print("START", end=" ")
+                else:
+                    print("_____", end=" ")
+            print()
+
+    def get_all_valid_moves(self, card):
+        """"
+        Parameters
+        ----------
+        card:PathCard
+            the card for which to search the valid moves
+        """
+
+        result = [[], []]
+        result[0] = self.get_valid_moves(card)
+        if not card.is_symmetric():
+            card.rotate180()
+            result[1] = self.get_valid_moves(card)
+            card.rotate180()
+        return result
+
     def get_valid_moves(self, card):
         """"
-                Parameters
-                ----------
-                card:PathCard
-                    the card for which to search the valid moves
-                """
+        Parameters
+        ----------
+        card:PathCard
+            the card for which to search the valid moves
+        """
+        if not card.is_initialized():
+            return []
 
-        symmetric = card.is_symmetric()
-        result = None
-        while True:
-            for i in range(self.board_cell_nr_width_height[0]):
-                for j in range(self.board_cell_nr_width_height[1]):
-                    if self.fits(card, i, j):
-                        result.append((i, j))
+        result = []
+        for location in self.placed_cards_locations_list:
+            for offset in Board.NEIGHBOURS:
+                pos = add_tuples(location, offset)
+                if self.fits(card, pos[0], pos[1]):
+                    result.append(pos)
 
-            if symmetric:
-                symmetric = False
-            else:
-                break
+        return result
 
     def fits(self, card, x, y):
         """"
-                Parameters
-                ----------
-                card:PathCard
-                    the card for which to search the valid moves
-                x:int
-                    the position on the printed X axis (width related)
-                y:int
-                    the position on the printed Y axis (height related)
-                """
+        Parameters
+        ----------
+        card:PathCard
+            the card for which to search the valid moves
+        x:int
+            the position on the printed X axis (width related)
+        y:int
+            the position on the printed Y axis (height related)
+        """
+
+        if self.grid[x][y].is_initialized():
+            return False  # an initialized card already exists in the location we want to place "card"
+
+        connected_to_road = False
+
+        card_cardinals = card.get_cardinals()
+
+        #       compare index 0  1  2  3
+        #                  of N  S  E  W
+        compare_with_index = (1, 0, 3, 2)
+        #               with  S  N  W  E
 
         # PROBLEM: if the card next to the one we compare is a goal, you HAVE to connect it to it
         # so you can`t place a N_EWC to the north of a goal card,
@@ -292,30 +351,71 @@ class Board:
             t = Board.NEIGHBOURS[i]
             pos_x = x + t[0]
             pos_y = y + t[1]
-            if self.valid_location(pos_x, pos_y):
-                if i == 0 and (self.grid[pos_x][pos_y].south is None or card.north != self.grid[pos_x][pos_y].south):
-                    return False
-                elif i == 1 and (self.grid[pos_x][pos_y].north is None or card.south != self.grid[pos_x][pos_y].north):
-                    return False
-                elif i == 2 and (self.grid[pos_x][pos_y].west is None or card.est != self.grid[pos_x][pos_y].west):
-                    return False
-                elif i == 3 and (self.grid[pos_x][pos_y].est is None or card.west != self.grid[pos_x][pos_y].est):
-                    return False
 
-        return True
+            # if neighbour is inside the matrix and is initialized
+            if self.is_inside(pos_x, pos_y) and self.grid[pos_x][pos_y].is_initialized():
+                if card_cardinals[i] != self.grid[pos_x][pos_y].get_cardinals()[compare_with_index[i]]:
+                    return False
+                else:
+                    if card_cardinals[i]:
+                        connected_to_road = True
+                """if ((i == 0 and card.north != self.grid[pos_x][pos_y].south) or  # test if it can fit (north neighbour)
+                        (i == 1 and card.south != self.grid[pos_x][pos_y].north) or  # (south neighbour)
+                        (i == 2 and card.est != self.grid[pos_x][pos_y].west) or  # (est neighbour)
+                        (i == 3 and card.west != self.grid[pos_x][pos_y].est)):  # (west neighbour)
+                    return False
+                else:
+                   """
 
-    def valid_location(self, x, y):
+        return connected_to_road
+
+    def is_inside(self, x, y):
         """"
-                Parameters
-                ----------
-                x:int
-                    the position on the printed X axis (width related)
-                y:int
-                    the position on the printed Y axis (height related)
-                """
+        Parameters
+        ----------
+        x:int
+            the position on the printed X axis (width related)
+        y:int
+            the position on the printed Y axis (height related)
+        """
         return 0 <= x < self.board_cell_nr_width_height[0] and 0 <= y < self.board_cell_nr_width_height[1]
 
 
+b = Board()
+
+# this for the extra path beneath start N S E W, if you want more cards, add them to placed_bla bla as well
+# TODO HERE :D
+b.grid[4][2] = PathCard(True, False, True, False, True)
+b.placed_cards_locations_list.append((4, 2))
+
+p = [[None for _ in range(50)] for _ in range(5)]
+p[1][1] = PathCard(True, True, True, True, False)
+p[2][1] = PathCard(True, False, True, True, False)
+p[3][1] = PathCard(False, True, True, True, False)
+p[4][1] = PathCard(False, False, True, True, False)
+
+p[1][2] = PathCard(True, True, True, False, False)
+p[2][2] = PathCard(True, False, True, False, False)
+p[3][2] = PathCard(False, True, True, False, False)
+p[4][2] = PathCard(False, False, True, False, False)
+
+p[1][3] = PathCard(True, True, False, True, False)
+p[2][3] = PathCard(True, False, False, True, False)
+p[3][3] = PathCard(False, True, False, True, False)
+p[4][3] = PathCard(False, False, False, True, False)
+
+p[1][4] = PathCard(True, True, False, False, False)
+p[2][4] = PathCard(True, False, False, False, False)
+p[3][4] = PathCard(False, True, False, False, False)
+p[4][4] = PathCard(False, False, False, False, False)
+
+for i_ in range(5):
+    for j_ in range(5):
+        if i_ != 0 and j_ != 0:
+            print(b.get_all_valid_moves(p[i_][j_]), p[i_][j_].get_cardinals_string())
+
+print()
+b.print_board_with_coords()
 ########################################################################################################################
 #                                               Deck Class                                                             #
 ########################################################################################################################
