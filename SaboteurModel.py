@@ -314,7 +314,7 @@ class Board:
         for location in self.placed_cards_locations_list:
             for offset in Board.NEIGHBOURS:
                 pos = add_tuples(location, offset)
-                if self.fits(card, pos[0], pos[1]):
+                if pos not in result and self.fits(card, pos[0], pos[1]):
                     result.append(pos)
 
         return result
