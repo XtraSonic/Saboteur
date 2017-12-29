@@ -163,10 +163,11 @@ class PathCard(Card):
         index:int
             number representing which of the goal cards was reached
         """
-        self.end_reached[index] = True
+        if self.center:
+            self.end_reached[index] = True
 
     def reset_end(self):
-        for index in range(len(self.end_reached)):
+        for index in range(NUMBER_OF_GOALS):
             self.end_reached[index] = False
 
     def rotate180(self):
@@ -209,7 +210,7 @@ class GoalCard(PathCard):
         self.end_reached[self.index] = True
 
     def reset_end(self):
-        for index in range(len(self.end_reached)):
+        for index in range(NUMBER_OF_GOALS):
             self.end_reached[index] = False
         self.end_reached[self.index] = True
 
@@ -246,12 +247,14 @@ class Board:
 
         start_position_width = (self.board_cell_nr_width_height[0] - 1) // 2
         start_position_height = (self.board_cell_nr_width_height[1] - 9) // 2
+        self.start_location = (start_position_width, start_position_height)
 
         self.grid[start_position_width][start_position_height] = StartCard()
         self.placed_cards_locations_list = [(start_position_width, start_position_height)]
 
         left_goal_position_width = start_position_width - NUMBER_OF_GOALS + 1
         left_goal_position_height = start_position_height + 8
+        self.left_goal_location = (left_goal_position_width, left_goal_position_height)
         for i in range(NUMBER_OF_GOALS):
             self.grid[left_goal_position_width + i * 2][left_goal_position_height] = GoalCard(i, False)
 
@@ -288,17 +291,16 @@ class Board:
         for j in range(self.board_cell_nr_width_height[1]):  # width
             for i in range(self.board_cell_nr_width_height[0]):  # height
                 if self.grid[i][j].is_initialized() and (self.grid[i][j].card_type == PathCard.PATH or
-                                                         self.grid[i][j].card_type == GoalCard.GOAL):
+                                                         self.grid[i][j].card_type == GoalCard.GOAL or
+                                                         self.grid[i][j].card_type == StartCard.START):
                     if self.grid[i][j].is_initialized():
-                        for k in range(len(self.grid[i][j].end_reached)):
+                        for k in range(NUMBER_OF_GOALS):
                             if self.grid[i][j].end_reached[k]:
                                 print(k, end=" ")
                             else:
                                 print("_", end=" ")
                     else:
                         print("({0},{1})".format(i, j), end=" ")
-                elif self.grid[i][j].card_type == StartCard.START:
-                    print("START", end=" ")
                 else:
                     print("_____", end=" ")
             print()
@@ -376,14 +378,6 @@ class Board:
                 else:
                     if card_cardinals[i]:
                         connected_to_road = True
-                """if ((i == 0 and card.north != self.grid[pos_x][pos_y].south) or  # test if it can fit (north neighbour)
-                        (i == 1 and card.south != self.grid[pos_x][pos_y].north) or  # (south neighbour)
-                        (i == 2 and card.est != self.grid[pos_x][pos_y].west) or  # (est neighbour)
-                        (i == 3 and card.west != self.grid[pos_x][pos_y].est)):  # (west neighbour)
-                    return False
-                else:
-                   """
-
         return connected_to_road
 
     def is_inside(self, location):
@@ -394,8 +388,8 @@ class Board:
             location[0] = the position on the printed X axis (width related)
             location[1] = the position on the printed Y axis (height related)
         """
-        return 0 <= location[0] < self.board_cell_nr_width_height[0] and 0 <= location[1] < \
-               self.board_cell_nr_width_height[1]
+        return (0 <= location[0] < self.board_cell_nr_width_height[0] and
+                0 <= location[1] < self.board_cell_nr_width_height[1])
 
     def remove_path(self, location):
         removed_card = self.grid[location[0]][location[1]]
@@ -410,25 +404,32 @@ class Board:
             neighbour = add_tuples(location, offset)
             self.reset_spread(neighbour)
 
+        # TODO spread from goals
+        goal_y = self.left_goal_location[1]
+        for i in range(NUMBER_OF_GOALS):
+            goal_x = self.left_goal_location[0] + 2 * i
+            self.spread_to_neighbours((goal_x, goal_y), self.grid[goal_x][goal_y].index)
+
         return True
+
+    def spread_to_neighbours(self, location, index):
+        for offset in Board.NEIGHBOURS:
+            neighbour = add_tuples(location, offset)
+            self.spread_mark(neighbour, index)
 
     def spread_mark(self, location, index):
         if not self.is_inside(location):
             return
 
         spread_card = self.grid[location[0]][location[1]]
-        if not spread_card.is_initialized() or spread_card.end_reached[index]:
+        if not spread_card.is_initialized() or spread_card.end_reached[index] or not spread_card.center:
             return
 
         spread_card.mark_end(index)
-        for offset in Board.NEIGHBOURS:
-            neighbour = add_tuples(location, offset)
-            self.spread_mark(neighbour, index)
+        self.spread_to_neighbours(location, index)
 
         if spread_card.card_type == GoalCard.GOAL:
-            for offset in Board.NEIGHBOURS:
-                neighbour = add_tuples(location, offset)
-                self.spread_mark(neighbour, spread_card.index)
+            self.spread_to_neighbours(location, spread_card.index)
 
     def reset_spread(self, location):
         if not self.is_inside(location):
@@ -453,11 +454,6 @@ class Board:
             neighbour = add_tuples(location, offset)
             self.reset_spread(neighbour)
 
-        if reset_card.card_type == GoalCard.GOAL:
-            for offset in Board.NEIGHBOURS:
-                neighbour = add_tuples(location, offset)
-                self.spread_mark(neighbour, reset_card.index)
-
     def place_card(self, card, location):
         if not card.is_initialized():
             return -2
@@ -471,65 +467,205 @@ class Board:
         for offset in Board.NEIGHBOURS:
             neighbour = add_tuples(location, offset)
             if self.is_inside(neighbour) and self.grid[neighbour[0]][neighbour[1]].is_initialized():
-                for index in range(len(self.grid[neighbour[0]][neighbour[1]].end_reached)):
+                for index in range(NUMBER_OF_GOALS):
+                    # card doesn`t have a mark that the neighbour has
                     if not card.end_reached[index] and self.grid[neighbour[0]][neighbour[1]].end_reached[index]:
                         self.spread_mark(location, index)
-                    if card.end_reached[index] and not self.grid[neighbour[0]][neighbour[1]].end_reached[index]:
-                        self.spread_mark(neighbour, index)
+                    # TODO THIS SHOULD BE AN IMPOSSIBLE CASE neighbour doesn`t have a mark that this card has
+                    # if card.end_reached[index] and not self.grid[neighbour[0]][neighbour[1]].end_reached[index]:
+                    #     self.spread_mark(neighbour, index)
 
         # TODO
         # self.check_end()
 
+
 b = Board()
 
-# this for the extra path beneath start N S E W, if you want more cards, add them to placed_bla bla as well
-
-# b.grid[4][2] = PathCard(True, False, True, False, True)
-# b.placed_cards_locations_list.append((4, 2))
-
-# b.remove_path((4, 2))
-
-
-p = [[None for _ in range(50)] for _ in range(5)]
-p[1][1] = PathCard(True, True, True, True, False)
-p[2][1] = PathCard(True, False, True, True, False)
-p[3][1] = PathCard(False, True, True, True, False)
-p[4][1] = PathCard(False, False, True, True, False)
-
-p[1][2] = PathCard(True, True, True, False, False)
-p[2][2] = PathCard(True, False, True, False, False)
-p[3][2] = PathCard(False, True, True, False, False)
-p[4][2] = PathCard(False, False, True, False, False)
-
-p[1][3] = PathCard(True, True, False, True, False)
-p[2][3] = PathCard(True, False, False, True, False)
-p[3][3] = PathCard(False, True, False, True, False)
-p[4][3] = PathCard(False, False, False, True, False)
-
-p[1][4] = PathCard(True, True, False, False, False)
-p[2][4] = PathCard(True, False, False, False, False)
-p[3][4] = PathCard(False, True, False, False, False)
-p[4][4] = PathCard(False, False, False, False, False)
-
+"""
+NSEW_ = PathCard(True,True,True,True,False)
+NSEWC = PathCard(True,True,True,True,True)
+NSE__ = PathCard(True,True,True,False,False)
+NSE_C = PathCard(True,True,True,False,True)
+NS_W_ = PathCard(True,True,False,True,False)
+NS_WC = PathCard(True,True,False,True,True)
+NS___ = PathCard(True,True,False,False,False)
+NS__C = PathCard(True,True,False,False,True)
+N_EW_ = PathCard(True,False,True,True,False)
+N_EWC = PathCard(True,False,True,True,True)
+N_E__ = PathCard(True,False,True,False,False)
+N_E_C = PathCard(True,False,True,False,True)
+N__W_ = PathCard(True,False,False,True,False)
+N__WC = PathCard(True,False,False,True,True)
+N____ = PathCard(True,False,False,False,False)
+N___C = PathCard(True,False,False,False,True)
+_SEW_ = PathCard(False,True,True,True,False)
+_SEWC = PathCard(False,True,True,True,True)
+_SE__ = PathCard(False,True,True,False,False)
+_SE_C = PathCard(False,True,True,False,True)
+_S_W_ = PathCard(False,True,False,True,False)
+_S_WC = PathCard(False,True,False,True,True)
+_S___ = PathCard(False,True,False,False,False)
+_S__C = PathCard(False,True,False,False,True)
+__EW_ = PathCard(False,False,True,True,False)
+__EWC = PathCard(False,False,True,True,True)
+__E__ = PathCard(False,False,True,False,False)
+__E_C = PathCard(False,False,True,False,True)
+___W_ = PathCard(False,False,False,True,False)
+___WC = PathCard(False,False,False,True,True)
+_____ = PathCard(False,False,False,False,False)
+____C = PathCard(False,False,False,False,True)
 # for i_ in range(5):
 #     for j_ in range(5):
 #         if i_ != 0 and j_ != 0:
 #             print(b.get_all_valid_moves(p[i_][j_]), p[i_][j_].get_cardinals_string())
-NSEW = p[1][1]
-b.place_card(copy.deepcopy(NSEW), (4, 2))
-b.place_card(copy.deepcopy(NSEW), (4, 3))
-b.place_card(copy.deepcopy(NSEW), (4, 4))
-b.place_card(copy.deepcopy(NSEW), (4, 5))
-b.place_card(copy.deepcopy(NSEW), (4, 6))
-b.place_card(copy.deepcopy(NSEW), (4, 7))
-b.place_card(copy.deepcopy(NSEW), (4, 8))
-b.place_card(copy.deepcopy(NSEW), (5, 8))
-b.place_card(copy.deepcopy(NSEW), (6, 8))
+
+b.place_card(copy.deepcopy(NSEWC), (4, 2))
+b.place_card(copy.deepcopy(NSEWC), (4, 3))
+b.place_card(copy.deepcopy(NSEWC), (4, 4))
+b.place_card(copy.deepcopy(NSEWC), (4, 5))
+b.place_card(copy.deepcopy(NSEWC), (4, 6))
+b.place_card(copy.deepcopy(NSEWC), (4, 7))
+b.place_card(copy.deepcopy(NSEWC), (4, 8))
+b.place_card(copy.deepcopy(NSEWC), (5, 8))
+b.place_card(copy.deepcopy(NSEWC), (6, 8))
 b.remove_path((4, 8))
-b.place_card(copy.deepcopy(NSEW), (4, 8))
+#b.place_card(copy.deepcopy(NSEW_), (4, 8))
+b.place_card(copy.deepcopy(NSEWC), (5, 7))
 print()
 b.print_board_with_coords()
 b.print_board_with_ends()
+"""
+
+path_dic = {
+    "NSEW_": lambda: PathCard(True, True, True, True, False),
+    "NSEW": lambda: PathCard(True, True, True, True, False),
+
+    "NSEWC": lambda: PathCard(True, True, True, True, True),
+
+    "NSE__": lambda: PathCard(True, True, True, False, False),
+    "NSE": lambda: PathCard(True, True, True, False, False),
+
+    "NSE_C": lambda: PathCard(True, True, True, False, True),
+    "NSEC": lambda: PathCard(True, True, True, False, True),
+
+    "NS_W_": lambda: PathCard(True, True, False, True, False),
+    "NSW": lambda: PathCard(True, True, False, True, False),
+
+    "NS_WC": lambda: PathCard(True, True, False, True, True),
+    "NSWC": lambda: PathCard(True, True, False, True, True),
+
+    "NS___": lambda: PathCard(True, True, False, False, False),
+    "NS": lambda: PathCard(True, True, False, False, False),
+
+    "NS__C": lambda: PathCard(True, True, False, False, True),
+    "NSC": lambda: PathCard(True, True, False, False, True),
+
+    "N_EW_": lambda: PathCard(True, False, True, True, False),
+    "NEW": lambda: PathCard(True, False, True, True, False),
+
+    "N_EWC": lambda: PathCard(True, False, True, True, True),
+    "NEWC": lambda: PathCard(True, False, True, True, True),
+
+    "N_E__": lambda: PathCard(True, False, True, False, False),
+    "NE": lambda: PathCard(True, False, True, False, False),
+
+    "N_E_C": lambda: PathCard(True, False, True, False, True),
+    "NEC": lambda: PathCard(True, False, True, False, True),
+
+    "N__W_": lambda: PathCard(True, False, False, True, False),
+    "NW": lambda: PathCard(True, False, False, True, False),
+
+    "N__WC": lambda: PathCard(True, False, False, True, True),
+    "NWC": lambda: PathCard(True, False, False, True, True),
+
+    "N____": lambda: PathCard(True, False, False, False, False),
+    "N": lambda: PathCard(True, False, False, False, False),
+
+    "N___C": lambda: PathCard(True, False, False, False, True),
+    "NC": lambda: PathCard(True, False, False, False, True),
+
+    "_SEW_": lambda: PathCard(False, True, True, True, False),
+    "SEW": lambda: PathCard(False, True, True, True, False),
+
+    "_SEWC": lambda: PathCard(False, True, True, True, True),
+    "SEWC": lambda: PathCard(False, True, True, True, True),
+
+    "_SE__": lambda: PathCard(False, True, True, False, False),
+    "SE": lambda: PathCard(False, True, True, False, False),
+
+    "_SE_C": lambda: PathCard(False, True, True, False, True),
+    "SEC": lambda: PathCard(False, True, True, False, True),
+
+    "_S_W_": lambda: PathCard(False, True, False, True, False),
+    "SW": lambda: PathCard(False, True, False, True, False),
+
+    "_S_WC": lambda: PathCard(False, True, False, True, True),
+    "SWC": lambda: PathCard(False, True, False, True, True),
+
+    "_S___": lambda: PathCard(False, True, False, False, False),
+    "S": lambda: PathCard(False, True, False, False, False),
+
+    "_S__C": lambda: PathCard(False, True, False, False, True),
+    "SC": lambda: PathCard(False, True, False, False, True),
+
+    "__EW_": lambda: PathCard(False, False, True, True, False),
+    "EW": lambda: PathCard(False, False, True, True, False),
+
+    "__EWC": lambda: PathCard(False, False, True, True, True),
+    "EWC": lambda: PathCard(False, False, True, True, True),
+
+    "__E__": lambda: PathCard(False, False, True, False, False),
+    "E": lambda: PathCard(False, False, True, False, False),
+
+    "__E_C": lambda: PathCard(False, False, True, False, True),
+    "EC": lambda: PathCard(False, False, True, False, True),
+
+    "___W_": lambda: PathCard(False, False, False, True, False),
+    "W": lambda: PathCard(False, False, False, True, False),
+
+    "___WC": lambda: PathCard(False, False, False, True, True),
+    "WC": lambda: PathCard(False, False, False, True, True),
+
+    "_____": lambda: PathCard(False, False, False, False, False),
+    "": lambda: PathCard(False, False, False, False, False),
+
+    "____C": lambda: PathCard(False, False, False, False, True),
+    "C": lambda: PathCard(False, False, False, False, True)
+}
+
+while True:
+    b.print_board_with_coords()
+    print()
+    b.print_board_with_ends()
+    print()
+    print("command: ")
+    command = input().lower()
+    if command == "exit":
+        break
+    elif command == "p" or command == "place":
+        print("Place -> Card:")
+        card = path_dic.get(input(), None)()
+        if card is None:
+            print("Invalid card")
+        else:
+            print("location (x + enter + y)")
+            location = int(input()), int(input())
+            b.place_card(card, location)
+    elif command == "g" or command == "get_valid":
+        print("Get -> Card:")
+        card = path_dic.get(input(), None)
+        if card is None:
+            print("Invalid card")
+        else:
+            print(b.get_valid_moves(card))
+    elif command == "r" or command == "remove":
+        print("location (x + enter + y)")
+        location = int(input()), int(input())
+        b.remove_path(location)
+    else:
+        print("Invalid command")
+
+
 ########################################################################################################################
 #                                               Deck Class                                                             #
 ########################################################################################################################
