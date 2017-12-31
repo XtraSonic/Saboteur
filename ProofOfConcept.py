@@ -105,7 +105,7 @@ class Board:
             self.board_cell_numbers = board_cell_numbers
         self.card_size = board_area_size // self.board_cell_numbers
         # TODO change the cards to path cards
-        # create a grid with the specified dimensions, but no lower than 5 width and 9 height
+        # create a gridView with the specified dimensions, but no lower than 5 width and 9 height
         self.grid = [[Card(self.card_size, PATH_CARD_BACK_FILE)
                       for _ in range(max(self.board_cell_numbers[0], 9))]
                      for _ in range(max(self.board_cell_numbers[1], 5))]
