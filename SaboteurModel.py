@@ -11,6 +11,7 @@ Classes included:
 # defaults set for possible future updates
 import random
 
+random.seed()
 NUMBER_OF_GOALS = 3
 KEY_WORDS = ["PLACEHOLDER",  # 0
              "DEMOLISH",  # 1
@@ -119,9 +120,9 @@ class BlockUnblockCard(Card):
             self.card_type = None
 
         try:
-            self.card_subtype = self.VALID_SUBTYPES.index(card_subtype)
+            self.symbol = self.VALID_SUBTYPES.index(card_subtype)
         except ValueError as e:
-            self.card_subtype = None
+            self.symbol = None
             print("ERROR: Invalid card subtype ! Value will be set to \"None\" \nMessage:", e)
 
     def block(self, player):
@@ -133,11 +134,108 @@ class BlockUnblockCard(Card):
         pass
 
     def get_name(self):
-        return KEY_WORDS[self.card_type] + "_" + KEY_WORDS[self.card_subtype]
+        return KEY_WORDS[self.card_type] + "_" + KEY_WORDS[self.symbol]
 
 
 class PathCard(Card):
     PATH = KEY_WORDS.index("PATH")
+
+    PATH_CONSTRUCTOR_DICTIONARY = {
+        "NSEW_": lambda x: PathCard(True, True, True, True, False, x),
+        "NSEW": lambda x: PathCard(True, True, True, True, False, x),
+
+        "NSEWC": lambda x: PathCard(True, True, True, True, True, x),
+
+        "NSE__": lambda x: PathCard(True, True, True, False, False, x),
+        "NSE": lambda x: PathCard(True, True, True, False, False, x),
+
+        "NSE_C": lambda x: PathCard(True, True, True, False, True, x),
+        "NSEC": lambda x: PathCard(True, True, True, False, True, x),
+
+        "NS_W_": lambda x: PathCard(True, True, False, True, False, x),
+        "NSW": lambda x: PathCard(True, True, False, True, False, x),
+
+        "NS_WC": lambda x: PathCard(True, True, False, True, True, x),
+        "NSWC": lambda x: PathCard(True, True, False, True, True, x),
+
+        "NS___": lambda x: PathCard(True, True, False, False, False, x),
+        "NS": lambda x: PathCard(True, True, False, False, False, x),
+
+        "NS__C": lambda x: PathCard(True, True, False, False, True, x),
+        "NSC": lambda x: PathCard(True, True, False, False, True, x),
+
+        "N_EW_": lambda x: PathCard(True, False, True, True, False, x),
+        "NEW": lambda x: PathCard(True, False, True, True, False, x),
+
+        "N_EWC": lambda x: PathCard(True, False, True, True, True, x),
+        "NEWC": lambda x: PathCard(True, False, True, True, True, x),
+
+        "N_E__": lambda x: PathCard(True, False, True, False, False, x),
+        "NE": lambda x: PathCard(True, False, True, False, False, x),
+
+        "N_E_C": lambda x: PathCard(True, False, True, False, True, x),
+        "NEC": lambda x: PathCard(True, False, True, False, True, x),
+
+        "N__W_": lambda x: PathCard(True, False, False, True, False, x),
+        "NW": lambda x: PathCard(True, False, False, True, False, x),
+
+        "N__WC": lambda x: PathCard(True, False, False, True, True, x),
+        "NWC": lambda x: PathCard(True, False, False, True, True, x),
+
+        "N____": lambda x: PathCard(True, False, False, False, False, x),
+        "N": lambda x: PathCard(True, False, False, False, False, x),
+
+        "N___C": lambda x: PathCard(True, False, False, False, True, x),
+        "NC": lambda x: PathCard(True, False, False, False, True, x),
+
+        "_SEW_": lambda x: PathCard(False, True, True, True, False, x),
+        "SEW": lambda x: PathCard(False, True, True, True, False, x),
+
+        "_SEWC": lambda x: PathCard(False, True, True, True, True, x),
+        "SEWC": lambda x: PathCard(False, True, True, True, True, x),
+
+        "_SE__": lambda x: PathCard(False, True, True, False, False, x),
+        "SE": lambda x: PathCard(False, True, True, False, False, x),
+
+        "_SE_C": lambda x: PathCard(False, True, True, False, True, x),
+        "SEC": lambda x: PathCard(False, True, True, False, True, x),
+
+        "_S_W_": lambda x: PathCard(False, True, False, True, False, x),
+        "SW": lambda x: PathCard(False, True, False, True, False, x),
+
+        "_S_WC": lambda x: PathCard(False, True, False, True, True, x),
+        "SWC": lambda x: PathCard(False, True, False, True, True, x),
+
+        "_S___": lambda x: PathCard(False, True, False, False, False, x),
+        "S": lambda x: PathCard(False, True, False, False, False, x),
+
+        "_S__C": lambda x: PathCard(False, True, False, False, True, x),
+        "SC": lambda x: PathCard(False, True, False, False, True, x),
+
+        "__EW_": lambda x: PathCard(False, False, True, True, False, x),
+        "EW": lambda x: PathCard(False, False, True, True, False, x),
+
+        "__EWC": lambda x: PathCard(False, False, True, True, True, x),
+        "EWC": lambda x: PathCard(False, False, True, True, True, x),
+
+        "__E__": lambda x: PathCard(False, False, True, False, False, x),
+        "E": lambda x: PathCard(False, False, True, False, False, x),
+
+        "__E_C": lambda x: PathCard(False, False, True, False, True, x),
+        "EC": lambda x: PathCard(False, False, True, False, True, x),
+
+        "___W_": lambda x: PathCard(False, False, False, True, False, x),
+        "W": lambda x: PathCard(False, False, False, True, False, x),
+
+        "___WC": lambda x: PathCard(False, False, False, True, True, x),
+        "WC": lambda x: PathCard(False, False, False, True, True, x),
+
+        "_____": lambda x: PathCard(False, False, False, False, False, x),
+        "": lambda x: PathCard(False, False, False, False, False, x),
+
+        "____C": lambda x: PathCard(False, False, False, False, True, x),
+        "C": lambda x: PathCard(False, False, False, False, True, x)
+    }
 
     def __init__(self, north=None, south=None, est=None, west=None, center=None, revealed=None):
         """"
@@ -255,8 +353,13 @@ class StartCard(PathCard):
 
 class Board:
     # Board size, number of cells: Width/Height, Width >= 5, Height >= 9
-    MINIMUM_BOARD_SIZE = (5, 9)
-    DEFAULT_BOARD_SIZE = (9, 11)
+    GOAL_START_SPACE = 7
+    MINIMUM_BOARD_SIZE = (NUMBER_OF_GOALS * 2 - 1, GOAL_START_SPACE + 2)
+    DEFAULT_BOARD_SIZE = (NUMBER_OF_GOALS * 2 + 3, GOAL_START_SPACE + 4)
+
+    ERROR_UNINITIALIZED = -2
+    ERROR_NOT_FIT = -1
+
     #              North   South    Est     West
     NEIGHBOURS = [(0, -1), (0, 1), (1, 0), (-1, 0)]
 
@@ -270,20 +373,22 @@ class Board:
                       for _ in range(max(self.cell_nr_width_height[1], Board.MINIMUM_BOARD_SIZE[1]))]
                      for _ in range(max(self.cell_nr_width_height[0], Board.MINIMUM_BOARD_SIZE[0]))]
 
+        # middle of the board
         start_position_width = (self.cell_nr_width_height[0] - 1) // 2
-        start_position_height = (self.cell_nr_width_height[1] - 9) // 2
+
+        # middle of goal and start is in center
+        start_position_height = (self.cell_nr_width_height[1] - Board.GOAL_START_SPACE - 2) // 2
         self.start_location = (start_position_width, start_position_height)
 
         self.grid[start_position_width][start_position_height] = StartCard()
         self.placed_cards_locations_list = [(start_position_width, start_position_height)]
 
         left_goal_position_width = start_position_width - NUMBER_OF_GOALS + 1
-        left_goal_position_height = start_position_height + 8
+        left_goal_position_height = start_position_height + Board.GOAL_START_SPACE + 1
         self.left_goal_location = (left_goal_position_width, left_goal_position_height)
         for i in range(NUMBER_OF_GOALS):
             self.grid[left_goal_position_width + i * 2][left_goal_position_height] = GoalCard(i, False, False)
 
-        random.seed()
         index = random.randrange(NUMBER_OF_GOALS)
         (self.grid[left_goal_position_width + index * 2][left_goal_position_height]).gold = True
 
@@ -327,16 +432,16 @@ class Board:
                 if self.grid[i][j].is_initialized() and (self.grid[i][j].card_type == PathCard.PATH or
                                                          self.grid[i][j].card_type == GoalCard.GOAL or
                                                          self.grid[i][j].card_type == StartCard.START):
-                    if self.grid[i][j].is_initialized():
-                        for k in range(NUMBER_OF_GOALS):
-                            if self.grid[i][j].end_reached[k]:
-                                print(k, end=" ")
-                            else:
-                                print("_", end=" ")
-                    else:
-                        print("({0},{1})".format(i, j), end=" ")
+                    for k in range(NUMBER_OF_GOALS):
+                        if self.grid[i][j].end_reached[k]:
+                            print(k, end="")
+                        else:
+                            print("*", end="")
+                    print(end=" ")
                 else:
-                    print("_____", end=" ")
+                    for _ in range(NUMBER_OF_GOALS):
+                        print("_", end="")
+                    print(end=" ")
             print()
         print()
 
@@ -490,10 +595,10 @@ class Board:
 
     def place_card(self, card, location):
         if not card.is_initialized():
-            return -2, False
+            return Board.ERROR_UNINITIALIZED
 
         if not self.fits(card, location):
-            return -1, False
+            return Board.ERROR_NOT_FIT
 
         card.revealed = True
         self.grid[location[0]][location[1]] = card
@@ -512,12 +617,12 @@ class Board:
     def check_end(self):
         """
 
-        :return: first element is a int tuple containing the indexes of the goal cards that were revealed
+        :return: first element is a int list containing the indexes of the goal cards that were revealed
                  second element is a boolean signaling if the gold was found
-        :rtype: tuple of int, bool
+        :rtype: array of int, bool
         """
         start = self.grid[self.start_location[0]][self.start_location[1]]
-        result = ()
+        result = []
         finish = False
         for index in range(NUMBER_OF_GOALS):
             if start.end_reached[index]:
@@ -525,7 +630,7 @@ class Board:
                 if not goal.revealed:
                     goal.revealed = True
                     self.placed_cards_locations_list.append(location)
-                    result += (index,)
+                    result.append(index)
                     if goal.gold:
                         finish = True
         return result, finish
@@ -553,32 +658,189 @@ class Deck:
     def __init__(self, deck_list=None):
         if deck_list is not None:
             self.deck_list = deck_list
+        else:
+            self.deck_list = []
 
     def is_empty(self):
-        if len(self.deck_list.length()) == 0:
+        if len(self.deck_list) == 0:
             return True
         else:
             return False
 
     def make_saboteur_deck(self):
-        pass
-        # TODO
+        paths = PathCard.PATH_CONSTRUCTOR_DICTIONARY
+
+        # NSEWC
+        for _ in range(5):
+            self.deck_list.append(paths.get("NSEWC")(False))
+        # EWC
+        for _ in range(5):
+            self.deck_list.append(paths.get("__EWC")(False))
+        # NEWC
+        for _ in range(5):
+            self.deck_list.append(paths.get("N_EWC")(False))
+        # SWC
+        for _ in range(5):
+            self.deck_list.append(paths.get("_S_WC")(False))
+        # NWC
+        for _ in range(5):
+            self.deck_list.append(paths.get("N__WC")(False))
+        # NSC
+        for _ in range(5):
+            self.deck_list.append(paths.get("NS__C")(False))
+        # NSWC
+        for _ in range(5):
+            self.deck_list.append(paths.get("NS_WC")(False))
+
+        # NSEW
+        for _ in range(2):
+            self.deck_list.append(paths.get("NSEW_")(False))
+        # SW
+        self.deck_list.append(paths.get("_S_W_")(False))
+        # NW
+        self.deck_list.append(paths.get("N__W_")(False))
+        # EW
+        self.deck_list.append(paths.get("__EW_")(False))
+        # S
+        self.deck_list.append(paths.get("_S___")(False))
+        # E
+        self.deck_list.append(paths.get("__E__")(False))
+        # SEW
+        self.deck_list.append(paths.get("_SEW_")(False))
+        # NS
+        self.deck_list.append(paths.get("NS___")(False))
+        # NSE
+        self.deck_list.append(paths.get("NSE__")(False))
+
+        self.shuffle()
 
     def draw(self):
         if not self.is_empty():
             return self.deck_list.pop()
         return None
 
+    def shuffle(self):
+        random.shuffle(self.deck_list)
+
 
 ########################################################################################################################
 #                                               Player Class                                                           #
 ########################################################################################################################
 class Player:
+    ERROR_WRONG_CARD_TYPE = -1
+    ERROR_ALREADY_BLOCKED_BY_SYMBOL = -2
+    ERROR_NOT_BLOCKED_BY_SYMBOL = -3
+    ERROR_HAND_IS_FULL = -4
+    ERROR_DECK_IS_EMPTY = -5
+    ERROR_PLAYER_BLOCKED = -6
+    ERROR_NOT_FIT = -7
 
-    def __init__(self, name, type):
-        # TODO
+    def __init__(self, name, saboteur, deck, max_hand_size):
+        """
+
+        :param name:
+        :param saboteur:
+        :param deck:
+        :param max_hand_size:
+        :type name: str
+        :type saboteur: bool
+        :type deck: Deck
+        :type max_hand_size: int
+        """
+        # TODO role select, sab or not
+
+        self.max_hand_size = max_hand_size
+
         self.name = name
-        self.type = type
+        self.saboteur = saboteur
+        self.hand = []
+        self.blocked_by = []
+        self.deck = deck
+
+    def is_blocked(self):
+        if len(self.blocked_by):
+            return True
+        else:
+            return False
+
+    def block(self, block_card):
+        """
+
+        :param block_card:
+        :return:
+        :type block_card: BlockUnblockCard
+        """
+        if block_card.card_type != BlockUnblockCard.BLOCK:
+            return Player.ERROR_WRONG_CARD_TYPE
+
+        if block_card.symbol in self.blocked_by:
+            return Player.ERROR_ALREADY_BLOCKED_BY_SYMBOL
+
+        self.blocked_by.append(block_card.symbol)
+
+    def unblock(self, block_card):
+        if block_card.card_type != BlockUnblockCard.UNBLOCK:
+            return Player.ERROR_WRONG_CARD_TYPE
+
+        if block_card.symbol not in self.blocked_by:
+            return Player.ERROR_NOT_BLOCKED_BY_SYMBOL
+
+        self.blocked_by.remove(block_card)
+
+    def add_card(self):
+        if len(self.hand) >= self.max_hand_size:
+            return Player.ERROR_HAND_IS_FULL
+
+        card = self.deck.draw()
+        if card:
+            self.hand.append(card)
+        else:
+            return Player.ERROR_DECK_IS_EMPTY
+
+    def fill_hand(self):
+        while len(self.hand) < self.max_hand_size:
+            if self.add_card() == Player.ERROR_DECK_IS_EMPTY:
+                return Player.ERROR_DECK_IS_EMPTY
+
+    def discard(self, deck, card):
+        index = self.hand.index(card)
+        new_card = deck.draw()
+        if new_card:
+            self.hand[index] = new_card
+        else:
+            return Player.ERROR_DECK_IS_EMPTY
+
+    def select_card(self, index):
+        return self.hand[index]
+
+    def play_card_on_board(self, index, location, board):
+        """
+
+        :param index:
+        :param location:
+        :param board:
+        :return:
+        :type index: int
+        :type location: tuple of int
+        :type board: Board
+        """
+        if not len(self.blocked_by) == 0:
+            return Player.ERROR_PLAYER_BLOCKED
+
+        card = self.hand[index]
+        board_result = board.place_card(card, location)
+
+        # error handling
+        if board_result == Board.ERROR_UNINITIALIZED:
+            raise Exception("Something went terribly wrong... A card in " + self.name + "s hand was uninitialized")
+        elif board_result == Board.ERROR_NOT_FIT:
+            return Player.ERROR_NOT_FIT
+
+    def is_empty_hand(self):
+        if len(self.hand):
+            return True
+        else:
+            return False
 
 
 ########################################################################################################################
@@ -586,180 +848,44 @@ class Player:
 ########################################################################################################################
 
 class Model:
+    MIN_PLAYERS = 3
+    MAX_PLAYERS = 10
 
-    def __init__(self):
-        # TODO
-        pass
+    NR_PLAYERS_DICTIONARY = {
+        3: ((1, 3), 6),
+        4: ((1, 4), 6),
+        5: ((2, 4), 6),
 
+        6: ((2, 5), 5),
+        7: ((3, 5), 5),
+
+        8: ((3, 6), 4),
+        9: ((3, 7), 4),
+        10: ((4, 7), 4)
+    }
+
+    def __init__(self, player_names):
+        nr_of_players = len(player_names)
+        if not (Model.MIN_PLAYERS <= nr_of_players <= Model.MAX_PLAYERS):
+            raise Exception("Can not create a model with " + str(nr_of_players) + " players")
+
+        (self.nr_saboteurs, self.nr_gold_diggers), max_hand_size = Model.NR_PLAYERS_DICTIONARY.get(nr_of_players)
+        self.board = Board()
+
+
+########################################################################################################################
+#                                               playing/testing funcions                                               #
+########################################################################################################################
 
 def play_test():
     b = Board()
-    """
-    NSEW_ = PathCard(True,True,True,True,False)
-    NSEWC = PathCard(True,True,True,True,True)
-    NSE__ = PathCard(True,True,True,False,False)
-    NSE_C = PathCard(True,True,True,False,True)
-    NS_W_ = PathCard(True,True,False,True,False)
-    NS_WC = PathCard(True,True,False,True,True)
-    NS___ = PathCard(True,True,False,False,False)
-    NS__C = PathCard(True,True,False,False,True)
-    N_EW_ = PathCard(True,False,True,True,False)
-    N_EWC = PathCard(True,False,True,True,True)
-    N_E__ = PathCard(True,False,True,False,False)
-    N_E_C = PathCard(True,False,True,False,True)
-    N__W_ = PathCard(True,False,False,True,False)
-    N__WC = PathCard(True,False,False,True,True)
-    N____ = PathCard(True,False,False,False,False)
-    N___C = PathCard(True,False,False,False,True)
-    _SEW_ = PathCard(False,True,True,True,False)
-    _SEWC = PathCard(False,True,True,True,True)
-    _SE__ = PathCard(False,True,True,False,False)
-    _SE_C = PathCard(False,True,True,False,True)
-    _S_W_ = PathCard(False,True,False,True,False)
-    _S_WC = PathCard(False,True,False,True,True)
-    _S___ = PathCard(False,True,False,False,False)
-    _S__C = PathCard(False,True,False,False,True)
-    __EW_ = PathCard(False,False,True,True,False)
-    __EWC = PathCard(False,False,True,True,True)
-    __E__ = PathCard(False,False,True,False,False)
-    __E_C = PathCard(False,False,True,False,True)
-    ___W_ = PathCard(False,False,False,True,False)
-    ___WC = PathCard(False,False,False,True,True)
-    _____ = PathCard(False,False,False,False,False)
-    ____C = PathCard(False,False,False,False,True)
-    # for i_ in range(5):
-    #     for j_ in range(5):
-    #         if i_ != 0 and j_ != 0:
-    #             print(b.get_all_valid_moves(p[i_][j_]), p[i_][j_].get_name())
-    
-    b.place_card(copy.deepcopy(NSEWC), (4, 2))
-    b.place_card(copy.deepcopy(NSEWC), (4, 3))
-    b.place_card(copy.deepcopy(NSEWC), (4, 4))
-    b.place_card(copy.deepcopy(NSEWC), (4, 5))
-    b.place_card(copy.deepcopy(NSEWC), (4, 6))
-    b.place_card(copy.deepcopy(NSEWC), (4, 7))
-    b.place_card(copy.deepcopy(NSEWC), (4, 8))
-    b.place_card(copy.deepcopy(NSEWC), (5, 8))
-    b.place_card(copy.deepcopy(NSEWC), (6, 8))
-    b.remove_path((4, 8))
-    #b.place_card(copy.deepcopy(NSEW_), (4, 8))
-    b.place_card(copy.deepcopy(NSEWC), (5, 7))
-    print()
-    b.print_board_with_coords()
-    b.print_board_with_ends()
-    """
-
-    path_dic = {
-        "NSEW_": lambda: PathCard(True, True, True, True, False),
-        "NSEW": lambda: PathCard(True, True, True, True, False),
-
-        "NSEWC": lambda: PathCard(True, True, True, True, True),
-
-        "NSE__": lambda: PathCard(True, True, True, False, False),
-        "NSE": lambda: PathCard(True, True, True, False, False),
-
-        "NSE_C": lambda: PathCard(True, True, True, False, True),
-        "NSEC": lambda: PathCard(True, True, True, False, True),
-
-        "NS_W_": lambda: PathCard(True, True, False, True, False),
-        "NSW": lambda: PathCard(True, True, False, True, False),
-
-        "NS_WC": lambda: PathCard(True, True, False, True, True),
-        "NSWC": lambda: PathCard(True, True, False, True, True),
-
-        "NS___": lambda: PathCard(True, True, False, False, False),
-        "NS": lambda: PathCard(True, True, False, False, False),
-
-        "NS__C": lambda: PathCard(True, True, False, False, True),
-        "NSC": lambda: PathCard(True, True, False, False, True),
-
-        "N_EW_": lambda: PathCard(True, False, True, True, False),
-        "NEW": lambda: PathCard(True, False, True, True, False),
-
-        "N_EWC": lambda: PathCard(True, False, True, True, True),
-        "NEWC": lambda: PathCard(True, False, True, True, True),
-
-        "N_E__": lambda: PathCard(True, False, True, False, False),
-        "NE": lambda: PathCard(True, False, True, False, False),
-
-        "N_E_C": lambda: PathCard(True, False, True, False, True),
-        "NEC": lambda: PathCard(True, False, True, False, True),
-
-        "N__W_": lambda: PathCard(True, False, False, True, False),
-        "NW": lambda: PathCard(True, False, False, True, False),
-
-        "N__WC": lambda: PathCard(True, False, False, True, True),
-        "NWC": lambda: PathCard(True, False, False, True, True),
-
-        "N____": lambda: PathCard(True, False, False, False, False),
-        "N": lambda: PathCard(True, False, False, False, False),
-
-        "N___C": lambda: PathCard(True, False, False, False, True),
-        "NC": lambda: PathCard(True, False, False, False, True),
-
-        "_SEW_": lambda: PathCard(False, True, True, True, False),
-        "SEW": lambda: PathCard(False, True, True, True, False),
-
-        "_SEWC": lambda: PathCard(False, True, True, True, True),
-        "SEWC": lambda: PathCard(False, True, True, True, True),
-
-        "_SE__": lambda: PathCard(False, True, True, False, False),
-        "SE": lambda: PathCard(False, True, True, False, False),
-
-        "_SE_C": lambda: PathCard(False, True, True, False, True),
-        "SEC": lambda: PathCard(False, True, True, False, True),
-
-        "_S_W_": lambda: PathCard(False, True, False, True, False),
-        "SW": lambda: PathCard(False, True, False, True, False),
-
-        "_S_WC": lambda: PathCard(False, True, False, True, True),
-        "SWC": lambda: PathCard(False, True, False, True, True),
-
-        "_S___": lambda: PathCard(False, True, False, False, False),
-        "S": lambda: PathCard(False, True, False, False, False),
-
-        "_S__C": lambda: PathCard(False, True, False, False, True),
-        "SC": lambda: PathCard(False, True, False, False, True),
-
-        "__EW_": lambda: PathCard(False, False, True, True, False),
-        "EW": lambda: PathCard(False, False, True, True, False),
-
-        "__EWC": lambda: PathCard(False, False, True, True, True),
-        "EWC": lambda: PathCard(False, False, True, True, True),
-
-        "__E__": lambda: PathCard(False, False, True, False, False),
-        "E": lambda: PathCard(False, False, True, False, False),
-
-        "__E_C": lambda: PathCard(False, False, True, False, True),
-        "EC": lambda: PathCard(False, False, True, False, True),
-
-        "___W_": lambda: PathCard(False, False, False, True, False),
-        "W": lambda: PathCard(False, False, False, True, False),
-
-        "___WC": lambda: PathCard(False, False, False, True, True),
-        "WC": lambda: PathCard(False, False, False, True, True),
-
-        "_____": lambda: PathCard(False, False, False, False, False),
-        "": lambda: PathCard(False, False, False, False, False),
-
-        "____C": lambda: PathCard(False, False, False, False, True),
-        "C": lambda: PathCard(False, False, False, False, True)
-    }
-
-    b.place_card(path_dic.get("NSEWC", None)(), (4, 2))
-    b.place_card(path_dic.get("NSEWC", None)(), (4, 3))
-    b.place_card(path_dic.get("NSEWC", None)(), (4, 4))
-    b.place_card(path_dic.get("NSEWC", None)(), (4, 5))
-    b.place_card(path_dic.get("NSEWC", None)(), (4, 6))
-    b.place_card(path_dic.get("NSEWC", None)(), (4, 7))
+    path_dic = PathCard.PATH_CONSTRUCTOR_DICTIONARY
     while True:
         b.print_board_with_coords()
-        print()
         b.print_board_with_ends()
-        print()
         print("command: ")
         command = input().lower()
-        if command == "exit":
+        if command == "e" or command == "exit":
             break
         elif command == "p" or command == "place":
             print("Place -> Card:")
@@ -767,7 +893,7 @@ def play_test():
             if card_ is None:
                 print("Invalid card")
             else:
-                card_ = card_()
+                card_ = card_(True)
                 print("location (x + enter + y)")
                 location_ = int(input()), int(input())
                 print(b.place_card(card_, location_))
@@ -777,11 +903,29 @@ def play_test():
             if card_ is None:
                 print("Invalid card")
             else:
-                card_ = card_()
+                card_ = card_(True)
                 print(b.get_valid_moves(card_))
         elif command == "r" or command == "remove":
             print("location (x + enter + y)")
             location_ = int(input()), int(input())
             b.remove_path(location_)
+        elif command == "d" or command == "deck_play":
+            deck = Deck()
+            deck.make_saboteur_deck()
+            for el in deck.deck_list:
+                print(el.get_name(), end=" ")
+            print()
+            while not deck.is_empty():
+                card_ = deck.draw()
+                print(card_.get_name())
+                print("location (x + enter + y)")
+                location_ = int(input()), int(input())
+                print(b.place_card(card_, location_))
+                b.print_board_with_coords()
+                b.print_board_with_ends()
+
         else:
             print("Invalid command")
+
+
+play_test()
