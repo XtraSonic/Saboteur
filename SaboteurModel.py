@@ -45,8 +45,7 @@ class Card:
     PLACEHOLDER = KEY_WORDS.index("PLACEHOLDER")
     DEMOLISH = KEY_WORDS.index("DEMOLISH")
     SPY = KEY_WORDS.index("SPY")
-    TYPE = KEY_WORDS.index("TYPE")
-    VALID_TYPES = [PLACEHOLDER, DEMOLISH, SPY, TYPE, None]
+    VALID_TYPES = [PLACEHOLDER, DEMOLISH, SPY, None]
     """
     Attributes
     ----------
@@ -77,14 +76,6 @@ class Card:
             self.revealed = False
         else:
             self.revealed = revealed
-
-    def spy(self, player, goal):
-        # TODO
-        pass
-
-    def demolish(self, board, location):
-        # TODO
-        pass
 
     def get_name(self):
         return KEY_WORDS[self.card_type]
@@ -124,14 +115,6 @@ class BlockUnblockCard(Card):
         except ValueError as e:
             self.symbol = None
             print("ERROR: Invalid card subtype ! Value will be set to \"None\" \nMessage:", e)
-
-    def block(self, player):
-        # TODO
-        pass
-
-    def unblock(self, player):
-        # TODO
-        pass
 
     def get_name(self):
         return KEY_WORDS[self.card_type] + "_" + KEY_WORDS[self.symbol]
@@ -389,8 +372,8 @@ class Board:
         for i in range(NUMBER_OF_GOALS):
             self.grid[left_goal_position_width + i * 2][left_goal_position_height] = GoalCard(i, False, False)
 
-        index = random.randrange(NUMBER_OF_GOALS)
-        (self.grid[left_goal_position_width + index * 2][left_goal_position_height]).gold = True
+        # todo index = random.randrange(NUMBER_OF_GOALS)
+        # (self.grid[left_goal_position_width + index * 2][left_goal_position_height]).gold = True
 
     def print_board(self):
         for j in range(self.cell_nr_width_height[1]):
@@ -534,7 +517,8 @@ class Board:
     def remove_path(self, location):
         removed_card = self.grid[location[0]][location[1]]
         if removed_card.card_type == StartCard.START or \
-                removed_card.card_type == GoalCard.GOAL:
+                removed_card.card_type == GoalCard.GOAL or \
+                not removed_card.is_initialized():
             return False
 
         self.grid[location[0]][location[1]] = PathCard()
@@ -612,40 +596,35 @@ class Board:
                     if not card.end_reached[index] and self.grid[neighbour[0]][neighbour[1]].end_reached[index]:
                         self.spread_mark(location, index)
 
-        return self.check_end()
+    # todo
+    # def check_end_gold(self):
+    #     """
+    #
+    #     :return: first element is a int list containing the indexes of the goal cards that were revealed
+    #     :rtype: array of int
+    #     """
+    #     start = self.grid[self.start_location[0]][self.start_location[1]]
+    #     result = []
+    #     for index in range(NUMBER_OF_GOALS):
+    #         if start.end_reached[index]:
+    #             goal, location = self.get_goal_location(index)
+    #             if not goal.revealed:
+    #                 goal.revealed = True
+    #                 self.placed_cards_locations_list.append(location)
+    #                 result.append(index)
+    #
+    #     return result
 
-    def check_end(self):
-        """
-
-        :return: first element is a int list containing the indexes of the goal cards that were revealed
-                 second element is a boolean signaling if the gold was found
-        :rtype: array of int, bool
-        """
-        start = self.grid[self.start_location[0]][self.start_location[1]]
-        result = []
-        finish = False
-        for index in range(NUMBER_OF_GOALS):
-            if start.end_reached[index]:
-                goal, location = self.get_goal(index)
-                if not goal.revealed:
-                    goal.revealed = True
-                    self.placed_cards_locations_list.append(location)
-                    result.append(index)
-                    if goal.gold:
-                        finish = True
-        return result, finish
-
-    def get_goal(self, index):
+    def get_goal_location(self, index):
         """
         Gets the goal on the index position
 
         :param index: index of the goal card, counting them from left to right starting from 0
         :type index: int
-        :return: the gold card on position referred by the index and the location on the board
-        :rtype: GoalCard, tuple of int
+        :return: the goal card on position referred by the index and the location on the board
+        :rtype: tuple of int
         """
-        return (self.grid[self.left_goal_location[0] + 2 * index][self.left_goal_location[1]],
-                (self.left_goal_location[0] + 2 * index, self.left_goal_location[1]))
+        return self.left_goal_location[0] + 2 * index, self.left_goal_location[1]
 
 
 ########################################################################################################################
@@ -735,17 +714,15 @@ class Player:
     ERROR_PLAYER_BLOCKED = -6
     ERROR_NOT_FIT = -7
 
-    def __init__(self, name, saboteur, deck, max_hand_size):
+    def __init__(self, name, saboteur, max_hand_size):
         """
 
         :param name:
         :param saboteur:
-        :param deck:
         :param max_hand_size:
         :type name: str
         :type saboteur: bool
-        :type deck: Deck
-        :type max_hand_size: int
+        \:type max_hand_size: int
         """
         # TODO role select, sab or not
 
@@ -755,7 +732,7 @@ class Player:
         self.saboteur = saboteur
         self.hand = []
         self.blocked_by = []
-        self.deck = deck
+        self.knows_goals = [False for _ in range(NUMBER_OF_GOALS)]
 
     def is_blocked(self):
         if len(self.blocked_by):
@@ -787,54 +764,56 @@ class Player:
 
         self.blocked_by.remove(block_card)
 
-    def add_card(self):
+    def add_card(self, deck):
         if len(self.hand) >= self.max_hand_size:
             return Player.ERROR_HAND_IS_FULL
 
-        card = self.deck.draw()
+        card = deck.draw()
         if card:
             self.hand.append(card)
         else:
             return Player.ERROR_DECK_IS_EMPTY
 
-    def fill_hand(self):
+    def fill_hand(self, deck):
         while len(self.hand) < self.max_hand_size:
-            if self.add_card() == Player.ERROR_DECK_IS_EMPTY:
+            if self.add_card(deck) == Player.ERROR_DECK_IS_EMPTY:
                 return Player.ERROR_DECK_IS_EMPTY
 
-    def discard(self, deck, card):
-        index = self.hand.index(card)
+    def replace_card(self, index, deck):
         new_card = deck.draw()
         if new_card:
             self.hand[index] = new_card
         else:
+            self.hand.pop(index)
             return Player.ERROR_DECK_IS_EMPTY
 
-    def select_card(self, index):
-        return self.hand[index]
-
-    def play_card_on_board(self, index, location, board):
-        """
-
-        :param index:
-        :param location:
-        :param board:
-        :return:
-        :type index: int
-        :type location: tuple of int
-        :type board: Board
-        """
-        if not len(self.blocked_by) == 0:
-            return Player.ERROR_PLAYER_BLOCKED
-
-        card = self.hand[index]
-        board_result = board.place_card(card, location)
-
-        # error handling
-        if board_result == Board.ERROR_UNINITIALIZED:
-            raise Exception("Something went terribly wrong... A card in " + self.name + "s hand was uninitialized")
-        elif board_result == Board.ERROR_NOT_FIT:
-            return Player.ERROR_NOT_FIT
+    # TODO
+    # def play_card_on_board(self, index, location, board):
+    #     """
+    #
+    #     :param index:
+    #     :param location:
+    #     :param board:
+    #     :return:
+    #     :type index: int
+    #     :type location: tuple of int
+    #     :type board: Board
+    #     """
+    #     if not len(self.blocked_by) == 0:
+    #         return Player.ERROR_PLAYER_BLOCKED
+    #
+    #     card = self.hand[index]
+    #     board_result = board.place_card(card, location)
+    #
+    #     # error handling
+    #     if board_result == Board.ERROR_UNINITIALIZED:
+    #         raise Exception("Something went terribly wrong... A card in " + self.name + "s hand was uninitialized")
+    #     elif board_result == Board.ERROR_NOT_FIT:
+    #         return Player.ERROR_NOT_FIT
+    #
+    #
+    #
+    #     return board_result
 
     def is_empty_hand(self):
         if len(self.hand):
@@ -851,6 +830,10 @@ class Model:
     MIN_PLAYERS = 3
     MAX_PLAYERS = 10
 
+    SABOTEUR_WIN = 1
+    GOLD_DIGGER_WIN = 2
+    ERROR_INVALID_LOCATION = -1
+
     NR_PLAYERS_DICTIONARY = {
         3: ((1, 3), 6),
         4: ((1, 4), 6),
@@ -865,17 +848,142 @@ class Model:
     }
 
     def __init__(self, player_names):
-        nr_of_players = len(player_names)
-        if not (Model.MIN_PLAYERS <= nr_of_players <= Model.MAX_PLAYERS):
-            raise Exception("Can not create a model with " + str(nr_of_players) + " players")
 
-        (self.nr_saboteurs, self.nr_gold_diggers), max_hand_size = Model.NR_PLAYERS_DICTIONARY.get(nr_of_players)
+        # deck
+        self.deck = Deck()
+        self.deck.make_saboteur_deck()
+
+        # players
+        self.player_names = player_names
+        self.nr_of_players = len(player_names)
+        if not (Model.MIN_PLAYERS <= self.nr_of_players <= Model.MAX_PLAYERS):
+            raise Exception("Can not create a model with " + str(self.nr_of_players) + " players")
+        (self.nr_saboteurs, self.nr_gold_diggers), max_hand_size = Model.NR_PLAYERS_DICTIONARY.get(self.nr_of_players)
+        player_roles = [False for _ in range(self.nr_of_players + 1)]
+        for i in range(self.nr_saboteurs):
+            player_roles[i] = True
+        random.shuffle(player_roles)
+        self.players = [Player(element[0], element[1], max_hand_size) for element in zip(player_names, player_roles)]
+        for player in self.players:
+            if player.fill_hand(self.deck) == Player.ERROR_DECK_IS_EMPTY:
+                raise Exception("Could not fill the hands of the playeyers with the default deck")
+
+        # board
         self.board = Board()
+        self.gold_index = random.randrange(NUMBER_OF_GOALS)
+
+        self.turn_index = 0
+
+    def check_end_gold(self):
+        start = self.board.grid[self.board.start_location[0]][self.board.start_location[1]]
+        result = []
+        for index in range(NUMBER_OF_GOALS):
+            if start.end_reached[index]:
+                location = self.board.get_goal_location(index)
+                goal = self.board.grid[location[0]][location[1]]
+                if not goal.revealed:
+                    goal.revealed = True
+                    self.board.placed_cards_locations_list.append(location)
+                    result.append(index)
+
+        if self.gold_index in result:
+            return result, True
+        else:
+            return result, False
+
+    def check_end_cards(self):
+        if self.deck.is_empty():
+            for player in self.players:
+                if not player.is_empty_hand():
+                    return False
+            return True
+        return False
+
+    def play_turn(self, index_hand, location):
+        player = self.players[self.turn_index]
+        card = player.hand[index_hand]
+        """:type : Card | PathCard | BlockUnblockCard"""
+
+        if card.card_type == PathCard.PATH:
+            place_result = self.board.place_card(card, location)
+            if place_result == Board.ERROR_UNINITIALIZED:
+                raise Exception("Something went terribly wrong...\n"
+                                " A card in " + player.name + "s hand was uninitialized")
+            elif place_result == Board.ERROR_NOT_FIT:
+                return Model.ERROR_INVALID_LOCATION
+
+            reveals, gold_digger_win = self.check_end_gold()
+            if not gold_digger_win:
+                if self.check_end_cards():
+                    return Model.SABOTEUR_WIN
+                self.end_turn(player, index_hand)
+                return reveals
+            gold_location = self.board.get_goal_location(self.gold_index)
+            gold_goal = self.board.grid[gold_location[0]][gold_location[1]]
+            gold_goal.gold = True
+            return Model.GOLD_DIGGER_WIN
+
+        elif card.card_type == Card.SPY:
+            if not self.board.grid[location[0]][location[1]].card_type == KEY_WORDS.index("SPY"):
+                return Model.ERROR_INVALID_LOCATION
+            # todo decide how to handle spy: popup or perma reveal
+            self.end_turn(player, index_hand)
+            return
+
+        elif card.card_type == KEY_WORDS.index("DEMOLISH"):
+            if not self.board.remove_path(location):
+                return Model.ERROR_INVALID_LOCATION
+            self.end_turn(player, index_hand)
+            return
+
+        elif card.card_type == BlockUnblockCard.BLOCK:
+            if location == self.turn_index or \
+                    not (0 <= location < len(self.players)):
+                return Model.ERROR_INVALID_LOCATION
+
+            block_result = self.players[location].block(card)
+            if block_result == Player.ERROR_WRONG_CARD_TYPE:
+                raise Exception("Something went terribly wrong...\n"
+                                "Block card is not of Block type ?")
+            elif block_result == Player.ERROR_ALREADY_BLOCKED_BY_SYMBOL:
+                return Model.ERROR_INVALID_LOCATION
+
+            self.end_turn(player, index_hand)
+            return
+
+        elif card.card_type == BlockUnblockCard.UNBLOCK:
+            if location == self.turn_index or \
+                    not (0 <= location < len(self.players)):
+                return Model.ERROR_INVALID_LOCATION
+
+            block_result = self.players[location].unblock(card)
+            if block_result == Player.ERROR_WRONG_CARD_TYPE:
+                raise Exception("Something went terribly wrong...\n"
+                                "Unlock card is not of Unlock type ?")
+            elif block_result == Player.ERROR_NOT_BLOCKED_BY_SYMBOL:
+                return Model.ERROR_INVALID_LOCATION
+
+            self.end_turn(player, index_hand)
+            return
+
+        else:
+            raise Exception("Something went terribly wrong...\n"
+                            "WUT CARD IZ DIZ ???\n" + card.get_name())
+
+    def end_turn(self, player, index_hand):
+        player.replace_card(index_hand, self.deck)
+        self.turn_index += 1
+        if self.turn_index == self.nr_of_players:
+            self.turn_index = 0
 
 
+########################################################################################################################
+#                                                      END CODE                                                        #
+########################################################################################################################
 ########################################################################################################################
 #                                               playing/testing funcions                                               #
 ########################################################################################################################
+
 
 def play_test():
     b = Board()
