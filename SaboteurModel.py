@@ -13,18 +13,18 @@ import random
 
 random.seed()
 NUMBER_OF_GOALS = 3
-KEY_WORDS = ["PLACEHOLDER",  # 0
-             "DEMOLISH",  # 1
-             "SPY",  # 2
-             "TYPE",  # 3
-             "BLOCK",  # 4
-             "UNBLOCK",  # 5
-             "PICK",  # 6
-             "LAMP",  # 7
-             "CART",  # 8
-             "PATH",  # 9
-             "GOAL",  # 10
-             "START"  # 11
+KEY_WORDS = ["PLACEHOLDER",
+             "DEMOLISH",
+             "SPY",
+             "GNOME",
+             "BLOCK",
+             "UNBLOCK",
+             "PICK",
+             "LAMP",
+             "CART",
+             "PATH",
+             "GOAL",
+             "START"
              ]
 
 
@@ -39,13 +39,12 @@ def add_tuples(a, b):
 ########################################################################################################################
 #                                               Card + extensions                                                      #
 ########################################################################################################################
-
-
 class Card:
     PLACEHOLDER = KEY_WORDS.index("PLACEHOLDER")
     DEMOLISH = KEY_WORDS.index("DEMOLISH")
     SPY = KEY_WORDS.index("SPY")
-    VALID_TYPES = [PLACEHOLDER, DEMOLISH, SPY, None]
+    GNOME = KEY_WORDS.index("GNOME")
+    VALID_TYPES = [PLACEHOLDER, DEMOLISH, SPY, GNOME, None]
     """
     Attributes
     ----------
@@ -329,11 +328,10 @@ class StartCard(PathCard):
     def get_name(self):
         return KEY_WORDS[self.card_type]
 
+
 ########################################################################################################################
 #                                               Board Class                                                            #
 ########################################################################################################################
-
-
 class Board:
     # Board size, number of cells: Width/Height, Width >= 5, Height >= 9
     GOAL_START_SPACE = 7
@@ -371,9 +369,6 @@ class Board:
         self.left_goal_location = (left_goal_position_width, left_goal_position_height)
         for i in range(NUMBER_OF_GOALS):
             self.grid[left_goal_position_width + i * 2][left_goal_position_height] = GoalCard(i, False, False)
-
-        # todo index = random.randrange(NUMBER_OF_GOALS)
-        # (self.grid[left_goal_position_width + index * 2][left_goal_position_height]).gold = True
 
     def print_board(self):
         for j in range(self.cell_nr_width_height[1]):
@@ -596,25 +591,6 @@ class Board:
                     if not card.end_reached[index] and self.grid[neighbour[0]][neighbour[1]].end_reached[index]:
                         self.spread_mark(location, index)
 
-    # todo
-    # def check_end_gold(self):
-    #     """
-    #
-    #     :return: first element is a int list containing the indexes of the goal cards that were revealed
-    #     :rtype: array of int
-    #     """
-    #     start = self.grid[self.start_location[0]][self.start_location[1]]
-    #     result = []
-    #     for index in range(NUMBER_OF_GOALS):
-    #         if start.end_reached[index]:
-    #             goal, location = self.get_goal_location(index)
-    #             if not goal.revealed:
-    #                 goal.revealed = True
-    #                 self.placed_cards_locations_list.append(location)
-    #                 result.append(index)
-    #
-    #     return result
-
     def get_goal_location(self, index):
         """
         Gets the goal on the index position
@@ -630,15 +606,13 @@ class Board:
 ########################################################################################################################
 #                                               Deck Class                                                             #
 ########################################################################################################################
-
-
 class Deck:
 
     def __init__(self, deck_list=None):
+        self.deck_list = []
+        """ :type : list[Card]"""
         if deck_list is not None:
             self.deck_list = deck_list
-        else:
-            self.deck_list = []
 
     def is_empty(self):
         if len(self.deck_list) == 0:
@@ -647,6 +621,7 @@ class Deck:
             return False
 
     def make_saboteur_deck(self):
+        # todo special cards
         paths = PathCard.PATH_CONSTRUCTOR_DICTIONARY
 
         # NSEWC
@@ -693,7 +668,12 @@ class Deck:
 
         self.shuffle()
 
-    def draw(self):
+    def draw_card(self):
+        """
+
+        :return:
+        :rtype: Card
+        """
         if not self.is_empty():
             return self.deck_list.pop()
         return None
@@ -724,8 +704,6 @@ class Player:
         :type saboteur: bool
         \:type max_hand_size: int
         """
-        # TODO role select, sab or not
-
         self.max_hand_size = max_hand_size
 
         self.name = name
@@ -733,6 +711,7 @@ class Player:
         self.hand = []
         self.blocked_by = []
         self.knows_goals = [False for _ in range(NUMBER_OF_GOALS)]
+        self.role_card = Card(Card.GNOME, saboteur)
 
     def is_blocked(self):
         if len(self.blocked_by):
@@ -768,8 +747,10 @@ class Player:
         if len(self.hand) >= self.max_hand_size:
             return Player.ERROR_HAND_IS_FULL
 
-        card = deck.draw()
+        card = deck.draw_card()
+
         if card:
+            card.revealed = True
             self.hand.append(card)
         else:
             return Player.ERROR_DECK_IS_EMPTY
@@ -780,40 +761,13 @@ class Player:
                 return Player.ERROR_DECK_IS_EMPTY
 
     def replace_card(self, index, deck):
-        new_card = deck.draw()
+        new_card = deck.draw_card()
         if new_card:
+            new_card.revealed = 1
             self.hand[index] = new_card
         else:
             self.hand.pop(index)
             return Player.ERROR_DECK_IS_EMPTY
-
-    # TODO
-    # def play_card_on_board(self, index, location, board):
-    #     """
-    #
-    #     :param index:
-    #     :param location:
-    #     :param board:
-    #     :return:
-    #     :type index: int
-    #     :type location: tuple of int
-    #     :type board: Board
-    #     """
-    #     if not len(self.blocked_by) == 0:
-    #         return Player.ERROR_PLAYER_BLOCKED
-    #
-    #     card = self.hand[index]
-    #     board_result = board.place_card(card, location)
-    #
-    #     # error handling
-    #     if board_result == Board.ERROR_UNINITIALIZED:
-    #         raise Exception("Something went terribly wrong... A card in " + self.name + "s hand was uninitialized")
-    #     elif board_result == Board.ERROR_NOT_FIT:
-    #         return Player.ERROR_NOT_FIT
-    #
-    #
-    #
-    #     return board_result
 
     def is_empty_hand(self):
         if len(self.hand):
@@ -825,13 +779,13 @@ class Player:
 ########################################################################################################################
 #                                               Model Class                                                            #
 ########################################################################################################################
-
 class Model:
     MIN_PLAYERS = 3
     MAX_PLAYERS = 10
 
     SABOTEUR_WIN = 1
     GOLD_DIGGER_WIN = 2
+    LOCATION_DISCARD = "DISCARD"
     ERROR_INVALID_LOCATION = -1
 
     NR_PLAYERS_DICTIONARY = {
@@ -899,10 +853,15 @@ class Model:
             return True
         return False
 
-    def play_turn(self, index_hand, location):
+    def play_turn(self, card, location):
         player = self.players[self.turn_index]
-        card = player.hand[index_hand]
-        """:type : Card | PathCard | BlockUnblockCard"""
+        # card = player.hand[index_hand]
+        # """:type : Card | PathCard | BlockUnblockCard"""
+        index_hand = player.hand.index(card)
+
+        if location == Model.LOCATION_DISCARD:
+            self.end_turn(player, index_hand)
+            return
 
         if card.card_type == PathCard.PATH:
             place_result = self.board.place_card(card, location)
@@ -976,6 +935,9 @@ class Model:
         if self.turn_index == self.nr_of_players:
             self.turn_index = 0
 
+    def get_active_player(self):
+        return self.players[self.turn_index]
+
 
 ########################################################################################################################
 #                                                      END CODE                                                        #
@@ -1024,7 +986,7 @@ def play_test():
                 print(el.get_name(), end=" ")
             print()
             while not deck.is_empty():
-                card_ = deck.draw()
+                card_ = deck.draw_card()
                 print(card_.get_name())
                 print("location (x + enter + y)")
                 location_ = int(input()), int(input())
@@ -1035,5 +997,4 @@ def play_test():
         else:
             print("Invalid command")
 
-
-play_test()
+# play_test()
