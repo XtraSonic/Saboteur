@@ -167,18 +167,22 @@ class ViewController:
 
                     if not clicks[0]:
                         location = pygame.mouse.get_pos()
-                        released_element, target = self.get_element_at(location)
+                        released_element, region = self.get_element_at(location)
 
                         if released_element is not None and self.pressed_element == released_element:
 
                             # full click on one element
 
                             if self.selected_card is not None:
-                                if target == self.deck_info_area_rect:  # discard card
+                                if region == self.deck_info_area_rect:  # discard card
                                     make_discard_request(self.selected_card)  # todo
-                                self.deselect()  # selected_card = None
+
+                                if region == self.board_area_rect:
+                                    make_play_path_request(self.selected_card, self.pressed_element)  # todo
+
+                                self.deselect()
                             else:
-                                if target == self.hand_area_rect:
+                                if region == self.hand_area_rect:
                                     self.select(self.pressed_element)
 
                         self.pressed_element = None
@@ -196,14 +200,14 @@ class ViewController:
         """
         self.selected_card = element
         self.selected_card.shade()
-        pygame.display.update()  # todo add rect ?
+        pygame.display.update(self.hand_area_rect)  # todo add rect ?
         return
 
     def deselect(self):
         if self.selected_card is None:
             return
         self.selected_card.redraw()
-        pygame.display.update()  # todo here too ?
+        pygame.display.update(self.hand_area_rect)  # todo here too ?
         self.selected_card = None
 
     def get_element_at(self, location):
@@ -221,7 +225,7 @@ class ViewController:
             return self.hand.get_element_at(location), self.hand_area_rect
 
         elif self.board_area_rect.collidepoint(x, y):
-            pass
+            return self.board.get_element_at(location), self.board_area_rect
             # todo return self.board.get_element_at(location)
 
         elif self.names_area_rect.collidepoint(x, y):
@@ -233,6 +237,10 @@ class ViewController:
         self.hand.update(card_viewed)
         pygame.display.update()  # todo update only a rect, but it`s too bothersome (considering time left)
         pass
+
+    def update_board(self, locations=None):
+        self.board.update(locations)
+        self.update_hand(self.selected_card)
 
     @staticmethod
     def end_view():
@@ -384,6 +392,8 @@ class BoardView:
         self.gridView = [[None  # CardView(self.board.grid[i][j], self.board_card_size)
                           for _ in range(len(self.board.grid[i]))]
                          for i in range(len(self.board.grid))]
+        """:type gridView: list[list[CardView]]"""
+
         assert isinstance(subsurface, pygame.Surface)
         self.surface = subsurface
 
@@ -395,55 +405,41 @@ class BoardView:
     def get_card_loation(self, i, j):
         return i * self.board_card_size[0], j * self.board_card_size[1]
 
-    # def update(self, location=None):
-    #     """
-    #
-    #     :param location:
-    #     :return:
-    #     :type location: tuple of int
-    #     """
-    #
-    #     if location is None:
-    #         for x in range(len(self.gridView)):
-    #             for y in range(len(self.gridView[x])):
-    #                 screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
-    #                 self.gridView[x][y] = CardView(self.board.grid[x][y], self.board_card_size)
-    #                 if self.board.grid[x][y].revealed:
-    #                     self.surface_unscaled.blit(self.gridView[x][y].front_face,
-    #                                                screen_location,
-    #                                                self.gridView[x][y].front_face.get_rect())
-    #                 else:
-    #                     self.surface_unscaled.blit(self.gridView[x][y].back_face,
-    #                                                screen_location,
-    #                                                self.gridView[x][y].back_face.get_rect())
-    #     else:
-    #         x, y = location
-    #         screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
-    #         card_subsurface =
-    #         self.gridView[x][y] = CardView(self.board.grid[x][y], self.board_card_size)
-    #         if self.board.grid[x][y].revealed:
-    #             self.surface_unscaled.blit(self.gridView[x][y].front_face,
-    #                                        screen_location,
-    #                                        self.gridView[x][y].front_face.get_rect())
-    #         else:
-    #             self.surface_unscaled.blit(self.gridView[x][y].back_face,
-    #                                        screen_location,
-    #                                        self.gridView[x][y].back_face.get_rect())
-    #
-    #         # todo this should not be neccessary
-    #         # check goals
-    #         y = self.board.left_goal_location[1]
-    #         for x in range(sm.NUMBER_OF_GOALS):
-    #             x = self.board.left_goal_location[0] + 2 * x
-    #             screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
-    #             if self.board.grid[x][y].revealed:
-    #                 self.surface_unscaled.blit(self.gridView[x][y].front_face,
-    #                                            screen_location,
-    #                                            self.gridView[x][y].front_face.get_rect())
-    #             else:
-    #                 self.surface_unscaled.blit(self.gridView[x][y].back_face,
-    #                                            screen_location,
-    #                                            self.gridView[x][y].back_face.get_rect())
+    def get_element_at(self, location):
+        adjusted_location = array(location) - array(self.surface.get_abs_offset())
+        i, j = adjusted_location // array(self.board_card_size)
+        return i, j
+
+    def update(self, location=None):
+        """
+
+        :param location:
+        :return:
+        :type location: list[tuple of int]
+        """
+
+        if location is None:
+            for x in range(len(self.gridView)):
+                for y in range(len(self.gridView[x])):
+                    self.gridView[x][y].change_card(self.board.grid[x][y])
+        else:
+            for x, y in location:
+                self.gridView[x][y].change_card(self.board.grid[x][y])
+
+            # # todo this should not be neccessary
+            # # check goals
+            # y = self.board.left_goal_location[1]
+            # for x in range(sm.NUMBER_OF_GOALS):
+            #     x = self.board.left_goal_location[0] + 2 * x
+            #     screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
+            #     if self.board.grid[x][y].revealed:
+            #         self.surface_unscaled.blit(self.gridView[x][y].front_face,
+            #                                    screen_location,
+            #                                    self.gridView[x][y].front_face.get_rect())
+            #     else:
+            #         self.surface_unscaled.blit(self.gridView[x][y].back_face,
+            #                                    screen_location,
+            #                                    self.gridView[x][y].back_face.get_rect())
 
 
 class HandView:
@@ -451,7 +447,8 @@ class HandView:
 
     def __init__(self, cards, area_size, subsurface):
         self.cards_viewed = []
-        """ :type :list[CardView]"""
+        """ :type cards_viewed:list[CardView]"""
+
         self.surface = subsurface
         assert isinstance(self.surface, pygame.Surface)
 
@@ -477,7 +474,7 @@ class HandView:
                self.cards_position_start[1] + index * (self.card_size[1] + HandView.SPACING)
 
     def get_element_at(self, location):
-        x, y = location
+        x, y = array(location) - array(self.surface.get_abs_offset())
         if not (self.cards_position_start[0] <= x <= self.cards_position_start[0] + self.card_size[0]):
             return None
         else:
@@ -585,18 +582,41 @@ def make_discard_request(card_viewed):
     """
 
     :param card_viewed:
-    :type card_viewed: CardView | None
+    :type card_viewed: CardView
     :return:
     """
-    pass
+
     # force same turn
     model.turn_index = 0
 
-    print("got to request")
+    print("got to request discard")
     card = card_viewed.card
     print(model.play_turn(card, model.LOCATION_DISCARD))
 
     view.update_hand(card_viewed)
+
+
+def make_play_path_request(card_viewed, location):
+    """
+
+    :param location:
+    :type location: tuple of int
+    :param card_viewed:
+    :type card_viewed: CardView
+    :return:
+    """
+
+    # force same turn
+    model.turn_index = 0
+
+    print("got to request play path")
+
+    card = card_viewed.card
+    print(location)
+    res = model.play_turn(card, location)
+    print(res)
+    if res != model.ERROR_INVALID_LOCATION:
+        view.update_board()
 
 
 view.view_game_loop()
