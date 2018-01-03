@@ -4,7 +4,6 @@ from pygame.locals import *
 # todo ? import numpy as np
 from numpy import *
 import SaboteurModel as sm
-from datetime import datetime
 
 # Initialize pygame
 pygame.init()
@@ -183,9 +182,7 @@ class ViewController:
                                     make_discard_request(self.selected_card)  # todo
 
                                 if region == self.board_area_rect:
-                                    # print("Start : ", datetime.now())
                                     make_play_path_request(self.selected_card, self.pressed_element)  # todo
-                                    # print("Stop : ", datetime.now())
                                 self.deselect()
                             else:
                                 if region == self.hand_area_rect:
@@ -419,6 +416,12 @@ class BoardView:
                 card_subsurface = self.surface.subsurface(Rect(self.get_card_loation(i, j), self.board_card_size))
                 self.gridView[i][j] = CardView(self.board.grid[i][j], self.board_card_size, card_subsurface)
 
+    def get_card_position(self, card):
+        for i in range(len(self.gridView)):
+            for j in range(len(self.gridView[i])):
+                if self.gridView[i][j] == card:
+                    return i, j
+
     def get_card_loation(self, i, j):
         return i * self.board_card_size[0], j * self.board_card_size[1]
 
@@ -483,10 +486,10 @@ class HandView:
         self.cards_position_start = ((self.area_size[0] - self.card_size[0]) // 2,
                                      self.card_size[1] // 2)
         for index in range(self.nr_cards):
-            card_surface = self.surface.subsurface(Rect(self.get_index_position(index), self.card_size))
+            card_surface = self.surface.subsurface(Rect(self.get_index_location(index), self.card_size))
             self.cards_viewed.append(CardView(self.cards[index], self.card_size, card_surface))
 
-    def get_index_position(self, index):
+    def get_index_location(self, index):
         return self.cards_position_start[0], \
                self.cards_position_start[1] + index * (self.card_size[1] + HandView.SPACING)
 
@@ -496,7 +499,7 @@ class HandView:
             return None
         else:
             for index in range(self.nr_cards):
-                _, top = self.get_index_position(index)
+                _, top = self.get_index_location(index)
                 if top <= y:
                     if y <= top + self.card_size[1]:
                         return self.cards_viewed[index]
@@ -517,7 +520,7 @@ class HandView:
                 if self.cards[index] == self.cards_viewed[index].card:
                     self.cards_viewed[index].redraw()
                 else:
-                    card_surface = self.surface.subsurface(Rect(self.get_index_position(index), self.card_size))
+                    card_surface = self.surface.subsurface(Rect(self.get_index_location(index), self.card_size))
                     self.cards_viewed[index] = (CardView(self.cards[index], self.card_size, card_surface))
             self.cards_viewed.pop()
             # pygame.display.update()
@@ -573,7 +576,8 @@ def make_play_path_request(card_viewed, location):
     res = model.play_turn(card, location)
     print(res)
     if res != model.ERROR_INVALID_LOCATION:
-        view.update_board()
+        positions = [location]
+        view.update_board(positions + res)
 
 
 def make_rotate_request(card_viewed):
@@ -589,6 +593,7 @@ def make_rotate_request(card_viewed):
     card = card_viewed.card
     model.rotate_card(card)
     view.update_hand(card_viewed)
+
 
 view.view_game_loop()
 

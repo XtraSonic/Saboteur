@@ -591,7 +591,7 @@ class Board:
                     if not card.end_reached[index] and self.grid[neighbour[0]][neighbour[1]].end_reached[index]:
                         self.spread_mark(location, index)
 
-    def get_goal_location(self, index):
+    def get_goal_position(self, index):
         """
         Gets the goal on the index position
 
@@ -831,20 +831,20 @@ class Model:
 
     def check_end_gold(self):
         start = self.board.grid[self.board.start_location[0]][self.board.start_location[1]]
-        result = []
+        revealed_list = []
         for index in range(NUMBER_OF_GOALS):
             if start.end_reached[index]:
-                location = self.board.get_goal_location(index)
+                location = self.board.get_goal_position(index)
                 goal = self.board.grid[location[0]][location[1]]
                 if not goal.revealed:
                     goal.revealed = True
                     self.board.placed_cards_locations_list.append(location)
-                    result.append(index)
+                    revealed_list.append(self.board.get_goal_position(index))
 
-        if self.gold_index in result:
-            return result, True
+        if self.gold_index in revealed_list:
+            return revealed_list, True
         else:
-            return result, False
+            return revealed_list, False
 
     def check_saboteur_win(self):
         if self.deck.is_empty():
@@ -878,7 +878,7 @@ class Model:
                     return Model.SABOTEUR_WIN
                 self.end_turn(player, index_hand)
                 return reveals
-            gold_location = self.board.get_goal_location(self.gold_index)
+            gold_location = self.board.get_goal_position(self.gold_index)
             gold_goal = self.board.grid[gold_location[0]][gold_location[1]]
             gold_goal.gold = True
             return Model.GOLD_DIGGER_WIN
