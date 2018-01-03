@@ -503,76 +503,7 @@ class HandView:
 ########################################################################################################################
 #                                               playing/testing funcions                                               #
 ########################################################################################################################
-#
-# def play_test():
-#     black = (0, 0, 0)
-#     pink = (255, 132, 188)
-#     blue = (0, 0, 255)
-#     smb = sm.Board()
-#     b = BoardView(smb, board_area_size)
-#
-#     screen.blit(card_area_background, hand_area_position)
-#     screen.blit(names_area_background, names_area_position)
-#
-#     board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
-#     screen.blit(board_area, board_area_position)
-#     pygame.display.update()
-#     b.board.print_board_with_coords()
-#     wait()
-#
-#     # smb.place_card(sm.PathCard(True, True, True, True, True, True), (4, 2))
-#     # smb.place_card(sm.PathCard(True, True, True, True, True, True), (4, 3))
-#     # smb.place_card(sm.PathCard(True, True, True, True, True, True), (4, 4))
-#     # smb.place_card(sm.PathCard(True, True, True, True, True, True), (4, 5))
-#     # smb.place_card(sm.PathCard(True, True, True, True, True, True), (4, 6))
-#     # smb.place_card(sm.PathCard(True, True, True, True, True, True), (4, 7))
-#     # b.update((4,2))
-#     # b.update((4,3))
-#     # b.update((4,4))
-#     # b.update((4,5))
-#     # b.update((4,6))
-#     # b.update((4,7))
-#     # board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
-#     # screen.blit(board_area, board_area_position)
-#     # pygame.display.update()
-#     # b.board.print_board_with_coords()
-#     #
-#     # wait()
-#     # smb.place_card(sm.PathCard(True, True, True, True, True, True), (4, 8))
-#     # b.update((4,8))
-#     # board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
-#     # screen.blit(board_area, board_area_position)
-#     # pygame.display.update()
-#     # b.board.print_board_with_coords()
-#     # wait()
-#
-#     for i_ in range(2, 9):
-#         smb.place_card(sm.PathCard(True, True, True, True, True), (4, i_))
-#         b.update((4, i_))
-#         board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
-#         screen.blit(board_area, board_area_position)
-#         pygame.display.update()
-#         wait()
-#
-#     b.board.print_board_with_coords()
-#
-#     smb.place_card(sm.PathCard(True, True, True, True, True), (5, 9))
-#     b.update((5, 9))
-#     board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
-#     screen.blit(board_area, board_area_position)
-#     pygame.display.update()
-#     wait()
-#
-#     b.board.print_board_with_coords()
-#
-#     smb.place_card(sm.PathCard(True, True, True, True, True), (3, 9))
-#     b.update((3, 9))
-#     board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
-#     screen.blit(board_area, board_area_position)
-#     pygame.display.update()
-#     wait()
-#
-#     b.board.print_board_with_coords()
+
 
 model = sm.Model(["a", "b", "c"])
 view = ViewController(model.get_active_player(), model.board)
