@@ -1,5 +1,7 @@
 import pygame
+import pygame.surfarray as surfarray
 from pygame.locals import *
+# todo ? import numpy as np
 from numpy import *
 import SaboteurModel as sm
 
@@ -9,7 +11,7 @@ pygame.init()
 
 class ViewController:
     # <editor-fold desc="View constants -> file paths">
-    FILE_CARD_AREA_BACKGROUND = "Resources/CardAreaBackground.png"
+    FILE_HAND_AREA_BACKGROUND = "Resources/CardAreaBackground.png"
     FILE_PLAYER_LIST_AREA_BACKGROUND = "Resources/PlayerListBackground.png"
     FILE_DECK_INFO_BACKGROUND = "Resources/PlayerListBackground.png "  # todo change bg
 
@@ -81,6 +83,7 @@ class ViewController:
 
         # Set window to full screen and get screen info
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+        assert isinstance(self.screen, pygame.Surface)
         self.screen_size = self.screen.get_size()
 
         # Game clock rename (used to set up frames per second)
@@ -94,8 +97,10 @@ class ViewController:
         self.hand_area_percentage = array((0.15, 0.7))
         self.hand_area_size = (self.screen_size * self.hand_area_percentage).astype(int)
         self.hand_area_position = 0, 0
-        self.hand = HandView(player.hand, self.hand_area_size)
         self.hand_area_rect = Rect(self.hand_area_position, self.hand_area_size)
+        self.hand = HandView(player.hand,
+                             self.hand_area_size,
+                             self.screen.subsurface(self.hand_area_rect))
 
         # Player List Area
         self.names_area_percentage = array((0.15, 0.7))
@@ -110,8 +115,8 @@ class ViewController:
         self.board_area_percentage = array((0.7, 1))
         self.board_area_size = (self.screen_size * self.board_area_percentage).astype(int)
         self.board_area_position = (self.hand_area_size[0], 0)
-        self.board = BoardView(board, self.board_area_size)
         self.board_area_rect = Rect(self.board_area_position, self.board_area_size)
+        self.board = BoardView(board, self.board_area_size, self.screen.subsurface(self.board_area_rect))
 
         # Deck information area
         self.deck_info_area_percentage = array((self.hand_area_percentage[0], 1 - self.hand_area_percentage[1]))
@@ -126,15 +131,15 @@ class ViewController:
         self.type_area_percentage = array((self.names_area_percentage[0], 1 - self.names_area_percentage[1]))
         self.type_area_size = (self.screen_size * self.type_area_percentage).astype(int)
         self.type_area_position = (self.names_area_position[0], self.names_area_position[1] + self.names_area_size[1])
-        self.type_area_image_raw = CardView(player.role_card, self.type_area_size).get_face()
-        self.type_area_image = pygame.transform.smoothscale(self.type_area_image_raw, self.type_area_size).convert()
+        self.type_area_rect = Rect(self.type_area_position, self.type_area_size)
+        self.type_area_card = CardView(player.role_card,
+                                       self.type_area_size,
+                                       self.screen.subsurface(self.type_area_rect))
 
         # Set up screen
-        self.screen.blit(self.hand.get_surface(), self.hand_area_position)
         self.screen.blit(self.names_area_background, self.names_area_position)
-        self.screen.blit(self.board.get_surface(), self.board_area_position)
         self.screen.blit(self.deck_info_area_background, self.deck_info_area_position)
-        self.screen.blit(self.type_area_image, self.type_area_position)  # one time only
+        # todo self.screen.blit(self.type_area_image, self.type_area_position)  # one time only
 
         pygame.display.update()
         self.selected_card = None
@@ -146,27 +151,35 @@ class ViewController:
         while True:
             event = pygame.event.wait()
             if self.active_player:
+
                 if event.type == pygame.MOUSEBUTTONDOWN:
                     clicks = pygame.mouse.get_pressed()
+
                     if clicks[0]:
                         location = pygame.mouse.get_pos()
                         self.pressed_element, _ = self.get_element_at(location)
+                        if self.pressed_element is None:
+                            self.deselect()
+
                 # todo other clicks + continue with logic afetr button is released
                 if event.type == pygame.MOUSEBUTTONUP:
                     clicks = pygame.mouse.get_pressed()
+
                     if not clicks[0]:
                         location = pygame.mouse.get_pos()
-                        stub, target = self.get_element_at(location)
-                        if self.pressed_element == stub:
+                        released_element, target = self.get_element_at(location)
+
+                        if released_element is not None and self.pressed_element == released_element:
+
                             # full click on one element
 
                             if self.selected_card is not None:
-                                if target == self.deck_info_area_rect:
+                                if target == self.deck_info_area_rect:  # discard card
                                     make_discard_request(self.selected_card)  # todo
-                                self.selected_card = None
+                                self.deselect()  # selected_card = None
                             else:
                                 if target == self.hand_area_rect:
-                                    self.selected_card = self.pressed_element
+                                    self.select(self.pressed_element)
 
                         self.pressed_element = None
 
@@ -174,27 +187,51 @@ class ViewController:
                 if event.type == pygame.KEYDOWN and event.key == K_SPACE:
                     self.end_view()
 
+    def select(self, element):
+        """
+
+        :param element:
+        :type element:
+        :return:
+        """
+        self.selected_card = element
+        self.selected_card.shade()
+        pygame.display.update()  # todo add rect ?
+        return
+
+    def deselect(self):
+        if self.selected_card is None:
+            return
+        self.selected_card.redraw()
+        pygame.display.update()  # todo here too ?
+        self.selected_card = None
+
     def get_element_at(self, location):
-        # ~spaghetti code, but i alreday put waaay too much time into this
+        """
+
+        :param location:
+        :return:
+        :rtype : CardView, Rect
+        """
         x, y = location
         if self.deck_info_area_rect.collidepoint(x, y):
-            return False, self.deck_info_area_rect
+            return False, self.deck_info_area_rect  # False aka no card
+
         elif self.hand_area_rect.collidepoint(x, y):
             return self.hand.get_element_at(location), self.hand_area_rect
+
         elif self.board_area_rect.collidepoint(x, y):
             pass
             # todo return self.board.get_element_at(location)
+
         elif self.names_area_rect.collidepoint(x, y):
-            return False  # todo make names great again
+            return None, None  # todo make names great again
+
         return None, None
 
     def update_hand(self, card_viewed):
-        image, location = self.hand.update(card_viewed)
-        location_adjusted = (location[0] + self.hand_area_position[0],
-                             location[1] + self.hand_area_position[1])
-
-        self.screen.blit(image, location_adjusted)
-        pygame.display.update()
+        self.hand.update(card_viewed)
+        pygame.display.update()  # todo update only a rect, but it`s too bothersome (considering time left)
         pass
 
     @staticmethod
@@ -218,12 +255,12 @@ def divide_tuples(dividend, divisor):
     return res
 
 
-#
-# def wait():
-#     while 1:
-#         ''' Pause Until Input is Given '''
-#         if event.type == pygame.KEYDOWN and event.key == K_SPACE:
-#             break
+def wait():
+    while 1:
+        event = pygame.event.wait()
+        ''' Pause Until Input is Given '''
+        if event.type == pygame.KEYDOWN and event.key == K_SPACE:
+            break
 
 
 ########################################################################################################################
@@ -282,8 +319,9 @@ class CardView:
 
         "GNOME": (ViewController.FILE_SABOTEUR_FRONT, ViewController.FILE_GOLD_DIGGER_FRONT)
     }
+    SHADE_FACTOR = 0.8
 
-    def __init__(self, card, card_size):
+    def __init__(self, card, card_size, surface):
         """
 
         :param card:
@@ -293,6 +331,20 @@ class CardView:
         """
         self.card = card
         self.card_size = card_size
+        self.surface = surface
+        assert isinstance(self.surface, pygame.Surface)
+        self.front_face = None
+        self.back_face = None
+        self.change_card(card)
+
+    def get_face(self):
+        if self.card.revealed:
+            return self.front_face
+        else:
+            return self.back_face
+
+    def change_card(self, card):
+        self.card = card
         front_file, back_file = CardView.CARD_DICTIONARY.get(card.get_name())
 
         front_image = pygame.image.load(front_file)
@@ -300,12 +352,14 @@ class CardView:
 
         back_image = pygame.image.load(back_file)
         self.back_face = pygame.transform.smoothscale(back_image, self.card_size)
+        self.redraw()
 
-    def get_face(self):
-        if self.card.revealed:
-            return self.front_face
-        else:
-            return self.back_face
+    def redraw(self):
+        self.surface.blit(self.get_face(), (0, 0))
+
+    def shade(self):
+        rgb_array = surfarray.pixels3d(self.get_face())
+        surfarray.blit_array(self.surface, rgb_array * CardView.SHADE_FACTOR)
 
 
 ########################################################################################################################
@@ -314,99 +368,98 @@ class CardView:
 class BoardView:
 
     # noinspection PyArgumentList
-    def __init__(self, board, area_size):
+    def __init__(self, board, area_size, subsurface):
         """
 
         :param board:
         :param area_size:
-        :type board: SM.Board
+        :type board: sm.Board
         :type area_size: ndarray of int
+        :type subsurface: pygame.Surface
         """
         self.board = board
-
         self.area_size = area_size
         self.board_card_size = area_size // array(self.board.cell_nr_width_height)
 
-        self.gridView = [[CardView(self.board.grid[i][j], self.board_card_size)
-                          for j in range(len(self.board.grid[i]))]
+        self.gridView = [[None  # CardView(self.board.grid[i][j], self.board_card_size)
+                          for _ in range(len(self.board.grid[i]))]
                          for i in range(len(self.board.grid))]
-        self.surface = pygame.Surface(self.board_card_size * self.board.cell_nr_width_height).convert()
+        assert isinstance(subsurface, pygame.Surface)
+        self.surface = subsurface
 
-        for x in range(len(self.gridView)):
-            for y in range(len(self.gridView[x])):
-                screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
-                if self.board.grid[x][y].revealed:
-                    self.surface.blit(self.gridView[x][y].front_face,
-                                      screen_location,
-                                      self.gridView[x][y].front_face.get_rect())
-                else:
-                    self.surface.blit(self.gridView[x][y].back_face,
-                                      screen_location,
-                                      self.gridView[x][y].back_face.get_rect())
+        for i in range(len(self.gridView)):
+            for j in range(len(self.gridView[i])):
+                card_subsurface = self.surface.subsurface(Rect(self.get_card_loation(i, j), self.board_card_size))
+                self.gridView[i][j] = CardView(self.board.grid[i][j], self.board_card_size, card_subsurface)
 
-    def get_surface(self):
-        return pygame.transform.smoothscale(self.surface, self.area_size).convert()
+    def get_card_loation(self, i, j):
+        return i * self.board_card_size[0], j * self.board_card_size[1]
 
-    def update(self, location=None):
-        """
-
-        :param location:
-        :return:
-        :type location: tuple of int
-        """
-
-        if location is None:
-            for x in range(len(self.gridView)):
-                for y in range(len(self.gridView[x])):
-                    screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
-                    self.gridView[x][y] = CardView(self.board.grid[x][y], self.board_card_size)
-                    if self.board.grid[x][y].revealed:
-                        self.surface.blit(self.gridView[x][y].front_face,
-                                          screen_location,
-                                          self.gridView[x][y].front_face.get_rect())
-                    else:
-                        self.surface.blit(self.gridView[x][y].back_face,
-                                          screen_location,
-                                          self.gridView[x][y].back_face.get_rect())
-        else:
-            x, y = location
-            screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
-            self.gridView[x][y] = CardView(self.board.grid[x][y], self.board_card_size)
-            if self.board.grid[x][y].revealed:
-                self.surface.blit(self.gridView[x][y].front_face,
-                                  screen_location,
-                                  self.gridView[x][y].front_face.get_rect())
-            else:
-                self.surface.blit(self.gridView[x][y].back_face,
-                                  screen_location,
-                                  self.gridView[x][y].back_face.get_rect())
-
-            # todo this should not be neccessary
-            # check goals
-            y = self.board.left_goal_location[1]
-            for x in range(sm.NUMBER_OF_GOALS):
-                x = self.board.left_goal_location[0] + 2 * x
-                screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
-                if self.board.grid[x][y].revealed:
-                    self.surface.blit(self.gridView[x][y].front_face,
-                                      screen_location,
-                                      self.gridView[x][y].front_face.get_rect())
-                else:
-                    self.surface.blit(self.gridView[x][y].back_face,
-                                      screen_location,
-                                      self.gridView[x][y].back_face.get_rect())
+    # def update(self, location=None):
+    #     """
+    #
+    #     :param location:
+    #     :return:
+    #     :type location: tuple of int
+    #     """
+    #
+    #     if location is None:
+    #         for x in range(len(self.gridView)):
+    #             for y in range(len(self.gridView[x])):
+    #                 screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
+    #                 self.gridView[x][y] = CardView(self.board.grid[x][y], self.board_card_size)
+    #                 if self.board.grid[x][y].revealed:
+    #                     self.surface_unscaled.blit(self.gridView[x][y].front_face,
+    #                                                screen_location,
+    #                                                self.gridView[x][y].front_face.get_rect())
+    #                 else:
+    #                     self.surface_unscaled.blit(self.gridView[x][y].back_face,
+    #                                                screen_location,
+    #                                                self.gridView[x][y].back_face.get_rect())
+    #     else:
+    #         x, y = location
+    #         screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
+    #         card_subsurface =
+    #         self.gridView[x][y] = CardView(self.board.grid[x][y], self.board_card_size)
+    #         if self.board.grid[x][y].revealed:
+    #             self.surface_unscaled.blit(self.gridView[x][y].front_face,
+    #                                        screen_location,
+    #                                        self.gridView[x][y].front_face.get_rect())
+    #         else:
+    #             self.surface_unscaled.blit(self.gridView[x][y].back_face,
+    #                                        screen_location,
+    #                                        self.gridView[x][y].back_face.get_rect())
+    #
+    #         # todo this should not be neccessary
+    #         # check goals
+    #         y = self.board.left_goal_location[1]
+    #         for x in range(sm.NUMBER_OF_GOALS):
+    #             x = self.board.left_goal_location[0] + 2 * x
+    #             screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
+    #             if self.board.grid[x][y].revealed:
+    #                 self.surface_unscaled.blit(self.gridView[x][y].front_face,
+    #                                            screen_location,
+    #                                            self.gridView[x][y].front_face.get_rect())
+    #             else:
+    #                 self.surface_unscaled.blit(self.gridView[x][y].back_face,
+    #                                            screen_location,
+    #                                            self.gridView[x][y].back_face.get_rect())
 
 
 class HandView:
     SPACING = 10
 
-    def __init__(self, cards, area_size):
+    def __init__(self, cards, area_size, subsurface):
         self.cards_viewed = []
         """ :type :list[CardView]"""
+        self.surface = subsurface
+        assert isinstance(self.surface, pygame.Surface)
+
         self.cards = cards
         self.area_size = area_size
-        self.background = pygame.image.load(ViewController.FILE_CARD_AREA_BACKGROUND)
-        self.surface = pygame.transform.smoothscale(self.background, self.area_size).convert()
+        self.background_image = pygame.image.load(ViewController.FILE_HAND_AREA_BACKGROUND)
+        self.background = pygame.transform.smoothscale(self.background_image, self.area_size)
+        self.surface.blit(self.background, (0, 0))
 
         self.nr_cards = len(self.cards)
         # 75% witdh wise, 1 card extra space + x pixels between them heightwise
@@ -416,22 +469,17 @@ class HandView:
         self.cards_position_start = ((self.area_size[0] - self.card_size[0]) // 2,
                                      self.card_size[1] // 2)
         for index in range(self.nr_cards):
-            self.cards_viewed.append(CardView(self.cards[index], self.card_size))
-            card_image = pygame.transform.smoothscale(self.cards_viewed[index].get_face(), self.card_size)
-            position = self.get_index_position(index)
-            self.surface.blit(card_image, position)
+            card_surface = self.surface.subsurface(Rect(self.get_index_position(index), self.card_size))
+            self.cards_viewed.append(CardView(self.cards[index], self.card_size, card_surface))
 
     def get_index_position(self, index):
         return self.cards_position_start[0], \
                self.cards_position_start[1] + index * (self.card_size[1] + HandView.SPACING)
 
-    def get_surface(self):
-        return self.surface.convert()
-
     def get_element_at(self, location):
         x, y = location
         if not (self.cards_position_start[0] <= x <= self.cards_position_start[0] + self.card_size[0]):
-            return False
+            return None
         else:
             for index in range(self.nr_cards):
                 _, top = self.get_index_position(index)
@@ -439,17 +487,14 @@ class HandView:
                     if y <= top + self.card_size[1]:
                         return self.cards_viewed[index]
                 else:
-                    return False
-        return False
+                    return None
+        return None
 
     def update(self, card_viewed):
         index = self.cards_viewed.index(card_viewed)
         if len(self.cards) == self.nr_cards:
-            self.cards_viewed[index] = CardView(self.cards[index], self.card_size)
-            location = self.get_index_position(index)
-            image = self.cards_viewed[index].get_face()
-            self.surface.blit(image, location)
-            return image, location
+            self.cards_viewed[index].change_card(self.cards[index])
+            return
         else:
             pass
             # todo reduce the nr of cards shown
@@ -472,7 +517,7 @@ class HandView:
 #     screen.blit(card_area_background, hand_area_position)
 #     screen.blit(names_area_background, names_area_position)
 #
-#     board_area = pygame.transform.smoothscale(b.surface, board_area_size)
+#     board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
 #     screen.blit(board_area, board_area_position)
 #     pygame.display.update()
 #     b.board.print_board_with_coords()
@@ -490,7 +535,7 @@ class HandView:
 #     # b.update((4,5))
 #     # b.update((4,6))
 #     # b.update((4,7))
-#     # board_area = pygame.transform.smoothscale(b.surface, board_area_size)
+#     # board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
 #     # screen.blit(board_area, board_area_position)
 #     # pygame.display.update()
 #     # b.board.print_board_with_coords()
@@ -498,7 +543,7 @@ class HandView:
 #     # wait()
 #     # smb.place_card(sm.PathCard(True, True, True, True, True, True), (4, 8))
 #     # b.update((4,8))
-#     # board_area = pygame.transform.smoothscale(b.surface, board_area_size)
+#     # board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
 #     # screen.blit(board_area, board_area_position)
 #     # pygame.display.update()
 #     # b.board.print_board_with_coords()
@@ -507,7 +552,7 @@ class HandView:
 #     for i_ in range(2, 9):
 #         smb.place_card(sm.PathCard(True, True, True, True, True), (4, i_))
 #         b.update((4, i_))
-#         board_area = pygame.transform.smoothscale(b.surface, board_area_size)
+#         board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
 #         screen.blit(board_area, board_area_position)
 #         pygame.display.update()
 #         wait()
@@ -516,7 +561,7 @@ class HandView:
 #
 #     smb.place_card(sm.PathCard(True, True, True, True, True), (5, 9))
 #     b.update((5, 9))
-#     board_area = pygame.transform.smoothscale(b.surface, board_area_size)
+#     board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
 #     screen.blit(board_area, board_area_position)
 #     pygame.display.update()
 #     wait()
@@ -525,7 +570,7 @@ class HandView:
 #
 #     smb.place_card(sm.PathCard(True, True, True, True, True), (3, 9))
 #     b.update((3, 9))
-#     board_area = pygame.transform.smoothscale(b.surface, board_area_size)
+#     board_area = pygame.transform.smoothscale(b.surface_unscaled, board_area_size)
 #     screen.blit(board_area, board_area_position)
 #     pygame.display.update()
 #     wait()
@@ -555,3 +600,5 @@ def make_discard_request(card_viewed):
 
 
 view.view_game_loop()
+
+wait()
