@@ -770,7 +770,7 @@ class Player:
             return Player.ERROR_DECK_IS_EMPTY
 
     def is_empty_hand(self):
-        if len(self.hand):
+        if len(self.hand) == 0:
             return True
         else:
             return False
@@ -846,10 +846,10 @@ class Model:
         else:
             return result, False
 
-    def check_end_cards(self):
+    def check_saboteur_win(self):
         if self.deck.is_empty():
             for player in self.players:
-                if not player.is_empty_hand():
+                if not player.is_empty_hand():  # at least 1 player still has cards
                     return False
             return True
         return False
@@ -874,7 +874,7 @@ class Model:
 
             reveals, gold_digger_win = self.check_end_gold()
             if not gold_digger_win:
-                if self.check_end_cards():
+                if self.check_saboteur_win():
                     return Model.SABOTEUR_WIN
                 self.end_turn(player, index_hand)
                 return reveals
@@ -929,6 +929,10 @@ class Model:
         else:
             raise Exception("Something went terribly wrong...\n"
                             "WUT CARD IZ DIZ ???\n" + card.get_name())
+
+    def rotate_card(self, card):
+        assert isinstance(card, PathCard)
+        card.rotate180()
 
     def end_turn(self, player, index_hand):
         player.replace_card(index_hand, self.deck)

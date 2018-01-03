@@ -4,6 +4,7 @@ from pygame.locals import *
 # todo ? import numpy as np
 from numpy import *
 import SaboteurModel as sm
+from datetime import datetime
 
 # Initialize pygame
 pygame.init()
@@ -146,6 +147,7 @@ class ViewController:
         """:type selected_card: CardView | None"""
         self.active_player = True  # todo set to false
         self.pressed_element = None
+        self.prepare_rotate = False
 
     def view_game_loop(self):
         while True:
@@ -160,6 +162,9 @@ class ViewController:
                         self.pressed_element, _ = self.get_element_at(location)
                         if self.pressed_element is None:
                             self.deselect()
+
+                    if clicks[2]:
+                        self.prepare_rotate = True
 
                 # todo other clicks + continue with logic afetr button is released
                 if event.type == pygame.MOUSEBUTTONUP:
@@ -178,8 +183,9 @@ class ViewController:
                                     make_discard_request(self.selected_card)  # todo
 
                                 if region == self.board_area_rect:
+                                    # print("Start : ", datetime.now())
                                     make_play_path_request(self.selected_card, self.pressed_element)  # todo
-
+                                    # print("Stop : ", datetime.now())
                                 self.deselect()
                             else:
                                 if region == self.hand_area_rect:
@@ -187,9 +193,18 @@ class ViewController:
 
                         self.pressed_element = None
 
+                    if not clicks[2]:
+                        if self.prepare_rotate:
+                            if self.selected_card:
+                                make_rotate_request(self.selected_card)
+                                self.select(self.selected_card)
+                            self.prepare_rotate = False
+
                     # todo remove this
                 if event.type == pygame.KEYDOWN and event.key == K_SPACE:
                     self.end_view()
+
+            pygame.display.update()
 
     def select(self, element):
         """
@@ -200,14 +215,14 @@ class ViewController:
         """
         self.selected_card = element
         self.selected_card.shade()
-        pygame.display.update(self.hand_area_rect)  # todo add rect ?
+        # pygame.display.update(self.hand_area_rect)  # todo add rect ?
         return
 
     def deselect(self):
         if self.selected_card is None:
             return
         self.selected_card.redraw()
-        pygame.display.update(self.hand_area_rect)  # todo here too ?
+        # pygame.display.update(self.hand_area_rect)  # todo here too ?
         self.selected_card = None
 
     def get_element_at(self, location):
@@ -226,7 +241,6 @@ class ViewController:
 
         elif self.board_area_rect.collidepoint(x, y):
             return self.board.get_element_at(location), self.board_area_rect
-            # todo return self.board.get_element_at(location)
 
         elif self.names_area_rect.collidepoint(x, y):
             return None, None  # todo make names great again
@@ -235,7 +249,7 @@ class ViewController:
 
     def update_hand(self, card_viewed):
         self.hand.update(card_viewed)
-        pygame.display.update()  # todo update only a rect, but it`s too bothersome (considering time left)
+        # pygame.display.update()  # todo update only a rect, but it`s too bothersome (considering time left)
         pass
 
     def update_board(self, locations=None):
@@ -343,6 +357,7 @@ class CardView:
         assert isinstance(self.surface, pygame.Surface)
         self.front_face = None
         self.back_face = None
+        self.active = True
         self.change_card(card)
 
     def get_face(self):
@@ -363,11 +378,13 @@ class CardView:
         self.redraw()
 
     def redraw(self):
-        self.surface.blit(self.get_face(), (0, 0))
+        if self.active:
+            self.surface.blit(self.get_face(), (0, 0))
 
     def shade(self):
-        rgb_array = surfarray.pixels3d(self.get_face())
-        surfarray.blit_array(self.surface, rgb_array * CardView.SHADE_FACTOR)
+        if self.active:
+            rgb_array = surfarray.pixels3d(self.get_face())
+            surfarray.blit_array(self.surface, rgb_array * CardView.SHADE_FACTOR)
 
 
 ########################################################################################################################
@@ -493,8 +510,17 @@ class HandView:
             self.cards_viewed[index].change_card(self.cards[index])
             return
         else:
-            pass
-            # todo reduce the nr of cards shown
+            card_viewed.active = False
+            self.surface.blit(self.background, (0, 0))
+            self.nr_cards = len(self.cards)
+            for index in range(self.nr_cards):
+                if self.cards[index] == self.cards_viewed[index].card:
+                    self.cards_viewed[index].redraw()
+                else:
+                    card_surface = self.surface.subsurface(Rect(self.get_index_position(index), self.card_size))
+                    self.cards_viewed[index] = (CardView(self.cards[index], self.card_size, card_surface))
+            self.cards_viewed.pop()
+            # pygame.display.update()
 
 
 ########################################################################################################################
@@ -505,7 +531,7 @@ class HandView:
 ########################################################################################################################
 
 
-model = sm.Model(["a", "b", "c"])
+model = sm.Model(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"])
 view = ViewController(model.get_active_player(), model.board)
 
 
@@ -549,6 +575,20 @@ def make_play_path_request(card_viewed, location):
     if res != model.ERROR_INVALID_LOCATION:
         view.update_board()
 
+
+def make_rotate_request(card_viewed):
+    """
+
+    :param card_viewed:
+    :type card_viewed: CardView
+    :return:
+    """
+
+    print("Got to rotate request")
+
+    card = card_viewed.card
+    model.rotate_card(card)
+    view.update_hand(card_viewed)
 
 view.view_game_loop()
 
