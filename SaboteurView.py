@@ -7,6 +7,7 @@ import SaboteurModel as sm
 
 # Initialize pygame
 pygame.init()
+pygame.font.init()
 
 
 class ViewController:
@@ -70,7 +71,7 @@ class ViewController:
 
     # </editor-fold>
 
-    def __init__(self, player, board):
+    def __init__(self, player, board, names_list):
         """
 
         :param player:
@@ -80,6 +81,7 @@ class ViewController:
         """
 
         self.player = player
+        self.names_list = names_list
 
         # Set window to full screen and get screen info
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -106,10 +108,8 @@ class ViewController:
         self.names_area_percentage = array((0.15, 0.7))
         self.names_area_size = (self.screen_size * self.names_area_percentage).astype(int)
         self.names_area_position = (self.screen_size[0] - self.names_area_size[0] - 1, 0)
-        self.names_area_background_image = pygame.image.load(ViewController.FILE_PLAYER_LIST_AREA_BACKGROUND)
-        self.names_area_background = pygame.transform.smoothscale(self.names_area_background_image,
-                                                                  self.names_area_size).convert()
         self.names_area_rect = Rect(self.names_area_position, self.names_area_size)
+        self.names = NamesView(self.names_list, self.names_area_size, self.screen.subsurface(self.names_area_rect))
 
         # Board Area
         self.board_area_percentage = array((0.7, 1))
@@ -137,9 +137,7 @@ class ViewController:
                                        self.screen.subsurface(self.type_area_rect))
 
         # Set up screen
-        self.screen.blit(self.names_area_background, self.names_area_position)
         self.screen.blit(self.deck_info_area_background, self.deck_info_area_position)
-        # todo self.screen.blit(self.type_area_image, self.type_area_position)  # one time only
 
         pygame.display.update()
         self.selected_card = None
@@ -165,7 +163,6 @@ class ViewController:
                     if clicks[2]:
                         self.prepare_rotate = True
 
-                # todo other clicks + continue with logic afetr button is released
                 if event.type == pygame.MOUSEBUTTONUP:
                     clicks = pygame.mouse.get_pressed()
 
@@ -182,7 +179,9 @@ class ViewController:
                                     make_discard_request(self.selected_card)  # todo
 
                                 if region == self.board_area_rect:
-                                    make_play_path_request(self.selected_card, self.pressed_element)  # todo
+                                    end = make_play_path_request(self.selected_card, self.pressed_element)  # todo
+                                    if end:
+                                        self.end_screen(end)
                                 self.deselect()
                             else:
                                 if region == self.hand_area_rect:
@@ -203,6 +202,9 @@ class ViewController:
 
             pygame.display.update()
 
+    def end_screen(self, winner):
+        pass
+
     def select(self, element):
         """
 
@@ -212,14 +214,12 @@ class ViewController:
         """
         self.selected_card = element
         self.selected_card.shade()
-        # pygame.display.update(self.hand_area_rect)  # todo add rect ?
         return
 
     def deselect(self):
         if self.selected_card is None:
             return
         self.selected_card.redraw()
-        # pygame.display.update(self.hand_area_rect)  # todo here too ?
         self.selected_card = None
 
     def get_element_at(self, location):
@@ -251,7 +251,6 @@ class ViewController:
 
     def update_board(self, locations=None):
         self.board.update(locations)
-        self.update_hand(self.selected_card)
 
     @staticmethod
     def end_view():
@@ -280,6 +279,42 @@ def wait():
         ''' Pause Until Input is Given '''
         if event.type == pygame.KEYDOWN and event.key == K_SPACE:
             break
+
+
+########################################################################################################################
+#                                               NamesView Class                                                        #
+########################################################################################################################
+class NamesView:
+    SPACING = 55
+    FONT_SIZE = 35
+
+    WHITE = (255, 255, 255)
+    YELLOW = (255, 255, 0)
+    RED = (255, 0, 0)
+    GREEN = (0, 255, 0)
+    BLUE = (0, 0, 255)
+    BLACK = (0, 0, 0)
+
+    def __init__(self, names, area_size, subsurface):
+        self.area_size = area_size
+        self.center_x = self.area_size[0] / 2
+        self.names = names
+        self.nr_names = len(self.names)
+        self.surface = subsurface
+        assert isinstance(self.surface, pygame.Surface)
+
+        self.background_image = pygame.image.load(ViewController.FILE_PLAYER_LIST_AREA_BACKGROUND)
+        print(self.area_size)
+        self.background = pygame.transform.smoothscale(self.background_image, self.area_size).convert()
+        self.surface.blit(self.background, (0, 0))
+
+        self.names_rendered = []
+        self.font = pygame.font.SysFont("comicsansms", NamesView.FONT_SIZE)
+        for index in range(self.nr_names):
+            name_rendered = self.font.render(self.names[index], True, NamesView.BLACK, NamesView.RED)
+            self.names_rendered.append(name_rendered)
+            name_rect = name_rendered.get_rect(center=(self.center_x, (index + 2) * NamesView.SPACING))
+            self.surface.blit(name_rendered, name_rect)
 
 
 ########################################################################################################################
@@ -446,21 +481,6 @@ class BoardView:
             for x, y in location:
                 self.gridView[x][y].change_card(self.board.grid[x][y])
 
-            # # todo this should not be neccessary
-            # # check goals
-            # y = self.board.left_goal_location[1]
-            # for x in range(sm.NUMBER_OF_GOALS):
-            #     x = self.board.left_goal_location[0] + 2 * x
-            #     screen_location = (x * self.board_card_size[0], y * self.board_card_size[1])
-            #     if self.board.grid[x][y].revealed:
-            #         self.surface_unscaled.blit(self.gridView[x][y].front_face,
-            #                                    screen_location,
-            #                                    self.gridView[x][y].front_face.get_rect())
-            #     else:
-            #         self.surface_unscaled.blit(self.gridView[x][y].back_face,
-            #                                    screen_location,
-            #                                    self.gridView[x][y].back_face.get_rect())
-
 
 class HandView:
     SPACING = 10
@@ -534,8 +554,9 @@ class HandView:
 ########################################################################################################################
 
 
-model = sm.Model(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"])
-view = ViewController(model.get_active_player(), model.board)
+# model = sm.Model(["Ana", "Baciu", "Claudiu", "Dani", "Elena", "Fabian", "Gheorghe", "Horea", "Iulia", "Julieta"])
+model = sm.Model(["Ana", "Baciu", "Claudiu"])
+view = ViewController(model.get_active_player(), model.board, model.player_names)
 
 
 def make_discard_request(card_viewed):
@@ -569,15 +590,25 @@ def make_play_path_request(card_viewed, location):
     # force same turn
     model.turn_index = 0
 
-    print("got to request play path")
+    print("got to request play path, glod @", model.gold_index)
 
     card = card_viewed.card
     print(location)
-    res = model.play_turn(card, location)
+    res, win = model.play_turn(card, location)
     print(res)
+    model.board.print_board_with_coords()
+    model.board.print_board_with_ends()
     if res != model.ERROR_INVALID_LOCATION:
         positions = [location]
         view.update_board(positions + res)
+    if win is not None:
+        if win == model.SABOTEUR_WIN:
+            print("SABOTEURS WIN")
+        else:
+            print("GD WIN")
+    view.update_hand(card_viewed)
+
+    return win
 
 
 def make_rotate_request(card_viewed):

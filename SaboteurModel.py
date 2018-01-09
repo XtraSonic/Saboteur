@@ -362,7 +362,7 @@ class Board:
         self.start_location = (start_position_width, start_position_height)
 
         self.grid[start_position_width][start_position_height] = StartCard()
-        self.placed_cards_locations_list = [(start_position_width, start_position_height)]
+        self.placed_cards_position_list = [(start_position_width, start_position_height)]
 
         left_goal_position_width = start_position_width - NUMBER_OF_GOALS + 1
         left_goal_position_height = start_position_height + Board.GOAL_START_SPACE + 1
@@ -450,7 +450,7 @@ class Board:
             return []
 
         result = []
-        for location in self.placed_cards_locations_list:
+        for location in self.placed_cards_position_list:
             for offset in Board.NEIGHBOURS:
                 pos = add_tuples(location, offset)
                 if pos not in result and self.fits(card, pos):
@@ -458,44 +458,45 @@ class Board:
 
         return result
 
-    def fits(self, card, location):
+    def fits(self, card, position):
         """"
         Parameters
         ----------
         card:PathCard
             the card for which to search the valid moves
-        location:int tuple
+        position:int tuple
             location[0] = the position on the printed X axis (width related)
             location[1] = the position on the printed Y axis (height related)
         """
 
-        if self.grid[location[0]][location[1]].is_initialized():
-            return False  # an initialized card already exists in the location we want to place "card"
+        if self.grid[position[0]][position[1]].is_initialized():
+            return False  # an initialized card already exists in the position we want to place "card"
 
         connected_to_road = False
 
         card_cardinals = card.get_cardinals()
+
+        # TODO make function compare and add it to spread as well
 
         #       compare index 0  1  2  3
         #                  of N  S  E  W
         compare_with_index = (1, 0, 3, 2)
         #               with  S  N  W  E
 
-        # PROBLEM: if the card next to the one we compare is a goal, you HAVE to connect it to it
-        # so you can`t place a N_EWC to the north of a goal card,
-        # basically, if you place a card next to a goal, you HAVE to reveal it
-        # since i don`t want to make x images (where x > 0) for each case, i`ll call this a FEATURE :)
         for i in range(len(Board.NEIGHBOURS)):
             offset = Board.NEIGHBOURS[i]
-            pos_x, pos_y = add_tuples(location, offset)
+            pos_x, pos_y = add_tuples(position, offset)
 
             # if neighbour is inside the matrix and is initialized
-            if self.is_inside((pos_x, pos_y)) and self.grid[pos_x][pos_y].is_initialized():
-                if card_cardinals[i] != self.grid[pos_x][pos_y].get_cardinals()[compare_with_index[i]]:
-                    return False
-                else:
+            if self.is_inside((pos_x, pos_y)) and \
+                    self.grid[pos_x][pos_y].is_initialized() and \
+                    self.grid[pos_x][pos_y].revealed:
+                if card_cardinals[i] == self.grid[pos_x][pos_y].get_cardinals()[compare_with_index[i]]:
                     if card_cardinals[i]:
                         connected_to_road = True
+                else:
+                    return False
+
         return connected_to_road
 
     def is_inside(self, location):
@@ -509,18 +510,18 @@ class Board:
         return (0 <= location[0] < self.cell_nr_width_height[0] and
                 0 <= location[1] < self.cell_nr_width_height[1])
 
-    def remove_path(self, location):
-        removed_card = self.grid[location[0]][location[1]]
+    def remove_path(self, position):
+        removed_card = self.grid[position[0]][position[1]]
         if removed_card.card_type == StartCard.START or \
                 removed_card.card_type == GoalCard.GOAL or \
                 not removed_card.is_initialized():
             return False
 
-        self.grid[location[0]][location[1]] = PathCard()
+        self.grid[position[0]][position[1]] = PathCard()
 
-        self.placed_cards_locations_list.remove(location)
+        self.placed_cards_position_list.remove(position)
         for offset in Board.NEIGHBOURS:
-            neighbour = add_tuples(location, offset)
+            neighbour = add_tuples(position, offset)
             self.reset_spread(neighbour)
 
         goal_y = self.left_goal_location[1]
@@ -530,24 +531,36 @@ class Board:
 
         return True
 
-    def spread_to_neighbours(self, location, index):
-        for offset in Board.NEIGHBOURS:
-            neighbour = add_tuples(location, offset)
-            self.spread_mark(neighbour, index)
-
-    def spread_mark(self, location, index):
-        if not self.is_inside(location):
+    def spread_to_neighbours(self, position, index):
+        if not self.is_inside(position):
             return
 
-        spread_card = self.grid[location[0]][location[1]]
-        if not spread_card.is_initialized() or spread_card.end_reached[index] or not spread_card.center:
+        card = self.grid[position[0]][position[1]]
+        if not card.center:
+            return  # don`t spread if this is a dead end
+
+        cardinals = card.get_cardinals()
+        for i in range(len(Board.NEIGHBOURS)):
+            if cardinals[i]:
+                offset = Board.NEIGHBOURS[i]
+                neighbour = add_tuples(position, offset)
+                self.spread_mark(neighbour, index)
+
+    def spread_mark(self, psoition, index):
+        if not self.is_inside(psoition):
+            return
+
+        spread_card = self.grid[psoition[0]][psoition[1]]
+        if not spread_card.is_initialized() or \
+                spread_card.end_reached[index] or \
+                not spread_card.center:
             return
 
         spread_card.mark_end(index)
-        self.spread_to_neighbours(location, index)
+        self.spread_to_neighbours(psoition, index)
 
         if spread_card.card_type == GoalCard.GOAL:
-            self.spread_to_neighbours(location, spread_card.index)
+            self.spread_to_neighbours(psoition, spread_card.index)
 
     def reset_spread(self, location):
         if not self.is_inside(location):
@@ -572,24 +585,24 @@ class Board:
             neighbour = add_tuples(location, offset)
             self.reset_spread(neighbour)
 
-    def place_card(self, card, location):
+    def place_card(self, card, position):
         if not card.is_initialized():
             return Board.ERROR_UNINITIALIZED
 
-        if not self.fits(card, location):
+        if not self.fits(card, position):
             return Board.ERROR_NOT_FIT
 
         card.revealed = True
-        self.grid[location[0]][location[1]] = card
-        self.placed_cards_locations_list.append(location)
+        self.grid[position[0]][position[1]] = card
+        self.placed_cards_position_list.append(position)
 
         for offset in Board.NEIGHBOURS:
-            neighbour = add_tuples(location, offset)
+            neighbour = add_tuples(position, offset)
             if self.is_inside(neighbour) and self.grid[neighbour[0]][neighbour[1]].is_initialized():
                 for index in range(NUMBER_OF_GOALS):
                     # card doesn't have a mark that the neighbour has
                     if not card.end_reached[index] and self.grid[neighbour[0]][neighbour[1]].end_reached[index]:
-                        self.spread_mark(location, index)
+                        self.spread_mark(position, index)
 
     def get_goal_position(self, index):
         """
@@ -834,14 +847,14 @@ class Model:
         revealed_list = []
         for index in range(NUMBER_OF_GOALS):
             if start.end_reached[index]:
-                location = self.board.get_goal_position(index)
-                goal = self.board.grid[location[0]][location[1]]
+                position = self.board.get_goal_position(index)
+                goal = self.board.grid[position[0]][position[1]]
                 if not goal.revealed:
                     goal.revealed = True
-                    self.board.placed_cards_locations_list.append(location)
+                    self.board.placed_cards_position_list.append(position)
                     revealed_list.append(self.board.get_goal_position(index))
 
-        if self.gold_index in revealed_list:
+        if self.board.get_goal_position(self.gold_index) in revealed_list:
             return revealed_list, True
         else:
             return revealed_list, False
@@ -870,18 +883,19 @@ class Model:
                 raise Exception("Something went terribly wrong...\n"
                                 " A card in " + player.name + "s hand was uninitialized")
             elif place_result == Board.ERROR_NOT_FIT:
-                return Model.ERROR_INVALID_LOCATION
+                return Model.ERROR_INVALID_LOCATION, None
 
             reveals, gold_digger_win = self.check_end_gold()
-            if not gold_digger_win:
+            if gold_digger_win:
+                gold_position = self.board.get_goal_position(self.gold_index)
+                gold_goal = self.board.grid[gold_position[0]][gold_position[1]]
+                gold_goal.gold = True
+                return reveals, Model.GOLD_DIGGER_WIN
+            else:
                 if self.check_saboteur_win():
-                    return Model.SABOTEUR_WIN
+                    return reveals, Model.SABOTEUR_WIN
                 self.end_turn(player, index_hand)
-                return reveals
-            gold_location = self.board.get_goal_position(self.gold_index)
-            gold_goal = self.board.grid[gold_location[0]][gold_location[1]]
-            gold_goal.gold = True
-            return Model.GOLD_DIGGER_WIN
+                return reveals, None
 
         elif card.card_type == Card.SPY:
             if not self.board.grid[location[0]][location[1]].card_type == KEY_WORDS.index("SPY"):
@@ -930,7 +944,8 @@ class Model:
             raise Exception("Something went terribly wrong...\n"
                             "WUT CARD IZ DIZ ???\n" + card.get_name())
 
-    def rotate_card(self, card):
+    @staticmethod
+    def rotate_card(card):
         assert isinstance(card, PathCard)
         card.rotate180()
 
@@ -995,6 +1010,7 @@ def play_test():
                 print(card_.get_name())
                 print("location (x + enter + y)")
                 location_ = int(input()), int(input())
+                assert isinstance(card_, PathCard)
                 print(b.place_card(card_, location_))
                 b.print_board_with_coords()
                 b.print_board_with_ends()
