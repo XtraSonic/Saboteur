@@ -1,7 +1,6 @@
 import pygame
 import pygame.surfarray as surfarray
 from pygame.locals import *
-# todo ? import numpy as np
 from numpy import *
 import SaboteurModel as sm
 
@@ -125,7 +124,9 @@ class ViewController:
         self.deck_info_area_background_image = pygame.image.load(ViewController.FILE_DECK_INFO_BACKGROUND)
         self.deck_info_area_background = pygame.transform.smoothscale(self.deck_info_area_background_image,
                                                                       self.deck_info_area_size).convert()
+
         self.deck_info_area_rect = Rect(self.deck_info_area_position, self.deck_info_area_size)
+        self.screen.blit(self.deck_info_area_background, self.deck_info_area_position)
 
         # Type information area
         self.type_area_percentage = array((self.names_area_percentage[0], 1 - self.names_area_percentage[1]))
@@ -135,9 +136,6 @@ class ViewController:
         self.type_area_card = CardView(player.role_card,
                                        self.type_area_size,
                                        self.screen.subsurface(self.type_area_rect))
-
-        # Set up screen
-        self.screen.blit(self.deck_info_area_background, self.deck_info_area_position)
 
         pygame.display.update()
         self.selected_card = None
@@ -174,7 +172,10 @@ class ViewController:
 
                             # full click on one element
 
-                            if self.selected_card is not None:
+                            if self.selected_card is None:
+                                if region == self.hand_area_rect:
+                                    self.select(self.pressed_element)
+                            else:
                                 if region == self.deck_info_area_rect:  # discard card
                                     make_discard_request(self.selected_card)  # todo
 
@@ -183,10 +184,6 @@ class ViewController:
                                     if end:
                                         self.end_screen(end)
                                 self.deselect()
-                            else:
-                                if region == self.hand_area_rect:
-                                    self.select(self.pressed_element)
-
                         self.pressed_element = None
 
                     if not clicks[2]:
@@ -199,8 +196,7 @@ class ViewController:
                     # todo remove this
                 if event.type == pygame.KEYDOWN and event.key == K_SPACE:
                     self.end_view()
-
-            pygame.display.update()
+                pygame.display.update()
 
     def end_screen(self, winner):
         pass
@@ -297,20 +293,21 @@ class NamesView:
 
     def __init__(self, names, area_size, subsurface):
         self.area_size = area_size
-        self.center_x = self.area_size[0] / 2
+        self.center_x = self.area_size[0] // 2
         self.names = names
         self.nr_names = len(self.names)
         self.surface = subsurface
         assert isinstance(self.surface, pygame.Surface)
 
         self.background_image = pygame.image.load(ViewController.FILE_PLAYER_LIST_AREA_BACKGROUND)
-        print(self.area_size)
         self.background = pygame.transform.smoothscale(self.background_image, self.area_size).convert()
         self.surface.blit(self.background, (0, 0))
 
         self.names_rendered = []
         self.font = pygame.font.SysFont("comicsansms", NamesView.FONT_SIZE)
         for index in range(self.nr_names):
+            # todo name background rep if it is your turn or not (red = not, green = that players turn)
+            # todo name color = blocked by symbol and we will assign colors for symbols
             name_rendered = self.font.render(self.names[index], True, NamesView.BLACK, NamesView.RED)
             self.names_rendered.append(name_rendered)
             name_rect = name_rendered.get_rect(center=(self.center_x, (index + 2) * NamesView.SPACING))
@@ -375,7 +372,7 @@ class CardView:
     }
     SHADE_FACTOR = 0.8
 
-    def __init__(self, card, card_size, surface):
+    def __init__(self, card, card_size, subsurface):
         """
 
         :param card:
@@ -385,7 +382,7 @@ class CardView:
         """
         self.card = card
         self.card_size = card_size
-        self.surface = surface
+        self.surface = subsurface
         assert isinstance(self.surface, pygame.Surface)
         self.front_face = None
         self.back_face = None
@@ -438,26 +435,26 @@ class BoardView:
         self.area_size = area_size
         self.board_card_size = area_size // array(self.board.cell_nr_width_height)
 
-        self.gridView = [[None  # CardView(self.board.grid[i][j], self.board_card_size)
-                          for _ in range(len(self.board.grid[i]))]
-                         for i in range(len(self.board.grid))]
+        self.grid_view = [[None
+                           for _ in range(len(self.board.grid[i]))]
+                          for i in range(len(self.board.grid))]
         """:type gridView: list[list[CardView]]"""
 
         assert isinstance(subsurface, pygame.Surface)
         self.surface = subsurface
 
-        for i in range(len(self.gridView)):
-            for j in range(len(self.gridView[i])):
-                card_subsurface = self.surface.subsurface(Rect(self.get_card_loation(i, j), self.board_card_size))
-                self.gridView[i][j] = CardView(self.board.grid[i][j], self.board_card_size, card_subsurface)
+        for i in range(len(self.grid_view)):
+            for j in range(len(self.grid_view[i])):
+                card_subsurface = self.surface.subsurface(Rect(self.get_card_location(i, j), self.board_card_size))
+                self.grid_view[i][j] = CardView(self.board.grid[i][j], self.board_card_size, card_subsurface)
 
     def get_card_position(self, card):
-        for i in range(len(self.gridView)):
-            for j in range(len(self.gridView[i])):
-                if self.gridView[i][j] == card:
+        for i in range(len(self.grid_view)):
+            for j in range(len(self.grid_view[i])):
+                if self.grid_view[i][j] == card:
                     return i, j
 
-    def get_card_loation(self, i, j):
+    def get_card_location(self, i, j):
         return i * self.board_card_size[0], j * self.board_card_size[1]
 
     def get_element_at(self, location):
@@ -474,12 +471,12 @@ class BoardView:
         """
 
         if location is None:
-            for x in range(len(self.gridView)):
-                for y in range(len(self.gridView[x])):
-                    self.gridView[x][y].change_card(self.board.grid[x][y])
+            for x in range(len(self.grid_view)):
+                for y in range(len(self.grid_view[x])):
+                    self.grid_view[x][y].change_card(self.board.grid[x][y])
         else:
             for x, y in location:
-                self.gridView[x][y].change_card(self.board.grid[x][y])
+                self.grid_view[x][y].change_card(self.board.grid[x][y])
 
 
 class HandView:
@@ -503,24 +500,24 @@ class HandView:
         self.card_size = array((self.area_size[0] * 0.75,
                                 self.area_size[1] // (self.nr_cards + 1) - HandView.SPACING
                                 )).astype(int)
-        self.cards_position_start = ((self.area_size[0] - self.card_size[0]) // 2,
+        self.cards_location_start = ((self.area_size[0] - self.card_size[0]) // 2,
                                      self.card_size[1] // 2)
         for index in range(self.nr_cards):
             card_surface = self.surface.subsurface(Rect(self.get_index_location(index), self.card_size))
             self.cards_viewed.append(CardView(self.cards[index], self.card_size, card_surface))
 
     def get_index_location(self, index):
-        return self.cards_position_start[0], \
-               self.cards_position_start[1] + index * (self.card_size[1] + HandView.SPACING)
+        return self.cards_location_start[0], \
+               self.cards_location_start[1] + index * (self.card_size[1] + HandView.SPACING)
 
     def get_element_at(self, location):
         x, y = array(location) - array(self.surface.get_abs_offset())
-        if not (self.cards_position_start[0] <= x <= self.cards_position_start[0] + self.card_size[0]):
+        if not (self.cards_location_start[0] <= x <= self.cards_location_start[0] + self.card_size[0]):
             return None
         else:
             for index in range(self.nr_cards):
                 _, top = self.get_index_location(index)
-                if top <= y:
+                if y >= top:
                     if y <= top + self.card_size[1]:
                         return self.cards_viewed[index]
                 else:
@@ -567,11 +564,13 @@ def make_discard_request(card_viewed):
     :return:
     """
 
-    # force same turn
+    # todo delete
+    #  force same turn
     model.turn_index = 0
 
     print("got to request discard")
     card = card_viewed.card
+
     print(model.play_turn(card, model.LOCATION_DISCARD))
 
     view.update_hand(card_viewed)

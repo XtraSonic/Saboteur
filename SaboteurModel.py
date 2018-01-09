@@ -754,7 +754,7 @@ class Player:
         if block_card.symbol not in self.blocked_by:
             return Player.ERROR_NOT_BLOCKED_BY_SYMBOL
 
-        self.blocked_by.remove(block_card)
+        self.blocked_by.remove(block_card.symbol)
 
     def add_card(self, deck):
         if len(self.hand) >= self.max_hand_size:
@@ -796,13 +796,16 @@ class Model:
     MIN_PLAYERS = 3
     MAX_PLAYERS = 10
 
+
     SABOTEUR_WIN = 1
     GOLD_DIGGER_WIN = 2
     LOCATION_DISCARD = "DISCARD"
 
     ERROR_INVALID_LOCATION = -1
+    ERROR_CAN_NOT_PLAY_PATH = -2
 
     NR_PLAYERS_DICTIONARY = {
+        # nr of players: ((nr saboteurs, nr gold diggers), max hand size)
         3: ((1, 3), 6),
         4: ((1, 4), 6),
         5: ((2, 4), 6),
@@ -834,7 +837,7 @@ class Model:
         self.players = [Player(element[0], element[1], max_hand_size) for element in zip(player_names, player_roles)]
         for player in self.players:
             if player.fill_hand(self.deck) == Player.ERROR_DECK_IS_EMPTY:
-                raise Exception("Could not fill the hands of the playeyers with the default deck")
+                raise Exception("Could not fill the hands of the players with the default deck")
 
         # board
         self.board = Board()
@@ -867,18 +870,21 @@ class Model:
             return True
         return False
 
-    def play_turn(self, card, location):
+    def play_turn(self, card, position):
         player = self.players[self.turn_index]
         # card = player.hand[index_hand]
         # """:type : Card | PathCard | BlockUnblockCard"""
         index_hand = player.hand.index(card)
 
-        if location == Model.LOCATION_DISCARD:
+        if position == Model.LOCATION_DISCARD:
             self.end_turn(player, index_hand)
             return
 
         if card.card_type == PathCard.PATH:
-            place_result = self.board.place_card(card, location)
+            if player.is_blocked():
+                return Model.ERROR_CAN_NOT_PLAY_PATH
+
+            place_result = self.board.place_card(card, position)
             if place_result == Board.ERROR_UNINITIALIZED:
                 raise Exception("Something went terribly wrong...\n"
                                 " A card in " + player.name + "s hand was uninitialized")
@@ -890,6 +896,7 @@ class Model:
                 gold_position = self.board.get_goal_position(self.gold_index)
                 gold_goal = self.board.grid[gold_position[0]][gold_position[1]]
                 gold_goal.gold = True
+                self.end_turn(player, index_hand)
                 return reveals, Model.GOLD_DIGGER_WIN
             else:
                 if self.check_saboteur_win():
@@ -898,24 +905,24 @@ class Model:
                 return reveals, None
 
         elif card.card_type == Card.SPY:
-            if not self.board.grid[location[0]][location[1]].card_type == KEY_WORDS.index("SPY"):
+            if not self.board.grid[position[0]][position[1]].card_type == GoalCard.GOAL:
                 return Model.ERROR_INVALID_LOCATION
             # todo decide how to handle spy: popup or perma reveal
             self.end_turn(player, index_hand)
             return
 
-        elif card.card_type == KEY_WORDS.index("DEMOLISH"):
-            if not self.board.remove_path(location):
+        elif card.card_type == Card.DEMOLISH:
+            if not self.board.remove_path(position):
                 return Model.ERROR_INVALID_LOCATION
             self.end_turn(player, index_hand)
             return
 
         elif card.card_type == BlockUnblockCard.BLOCK:
-            if location == self.turn_index or \
-                    not (0 <= location < len(self.players)):
+            if position == self.turn_index or \
+                    not (0 <= position < len(self.players)):
                 return Model.ERROR_INVALID_LOCATION
 
-            block_result = self.players[location].block(card)
+            block_result = self.players[position].block(card)
             if block_result == Player.ERROR_WRONG_CARD_TYPE:
                 raise Exception("Something went terribly wrong...\n"
                                 "Block card is not of Block type ?")
@@ -926,11 +933,10 @@ class Model:
             return
 
         elif card.card_type == BlockUnblockCard.UNBLOCK:
-            if location == self.turn_index or \
-                    not (0 <= location < len(self.players)):
+            if not (0 <= position < len(self.players)):
                 return Model.ERROR_INVALID_LOCATION
 
-            block_result = self.players[location].unblock(card)
+            block_result = self.players[position].unblock(card)
             if block_result == Player.ERROR_WRONG_CARD_TYPE:
                 raise Exception("Something went terribly wrong...\n"
                                 "Unlock card is not of Unlock type ?")
@@ -967,55 +973,55 @@ class Model:
 ########################################################################################################################
 
 
-def play_test():
-    b = Board()
-    path_dic = PathCard.PATH_CONSTRUCTOR_DICTIONARY
-    while True:
-        b.print_board_with_coords()
-        b.print_board_with_ends()
-        print("command: ")
-        command = input().lower()
-        if command == "e" or command == "exit":
-            break
-        elif command == "p" or command == "place":
-            print("Place -> Card:")
-            card_ = path_dic.get(input(), None)
-            if card_ is None:
-                print("Invalid card")
-            else:
-                card_ = card_(True)
-                print("location (x + enter + y)")
-                location_ = int(input()), int(input())
-                print(b.place_card(card_, location_))
-        elif command == "g" or command == "get_valid":
-            print("Get -> Card:")
-            card_ = path_dic.get(input(), None)
-            if card_ is None:
-                print("Invalid card")
-            else:
-                card_ = card_(True)
-                print(b.get_valid_moves(card_))
-        elif command == "r" or command == "remove":
-            print("location (x + enter + y)")
-            location_ = int(input()), int(input())
-            b.remove_path(location_)
-        elif command == "d" or command == "deck_play":
-            deck = Deck()
-            deck.make_saboteur_deck()
-            for el in deck.deck_list:
-                print(el.get_name(), end=" ")
-            print()
-            while not deck.is_empty():
-                card_ = deck.draw_card()
-                print(card_.get_name())
-                print("location (x + enter + y)")
-                location_ = int(input()), int(input())
-                assert isinstance(card_, PathCard)
-                print(b.place_card(card_, location_))
-                b.print_board_with_coords()
-                b.print_board_with_ends()
-
-        else:
-            print("Invalid command")
-
+# def play_test():
+#     b = Board()
+#     path_dic = PathCard.PATH_CONSTRUCTOR_DICTIONARY
+#     while True:
+#         b.print_board_with_coords()
+#         b.print_board_with_ends()
+#         print("command: ")
+#         command = input().lower()
+#         if command == "e" or command == "exit":
+#             break
+#         elif command == "p" or command == "place":
+#             print("Place -> Card:")
+#             card_ = path_dic.get(input(), None)
+#             if card_ is None:
+#                 print("Invalid card")
+#             else:
+#                 card_ = card_(True)
+#                 print("location (x + enter + y)")
+#                 location_ = int(input()), int(input())
+#                 print(b.place_card(card_, location_))
+#         elif command == "g" or command == "get_valid":
+#             print("Get -> Card:")
+#             card_ = path_dic.get(input(), None)
+#             if card_ is None:
+#                 print("Invalid card")
+#             else:
+#                 card_ = card_(True)
+#                 print(b.get_valid_moves(card_))
+#         elif command == "r" or command == "remove":
+#             print("location (x + enter + y)")
+#             location_ = int(input()), int(input())
+#             b.remove_path(location_)
+#         elif command == "d" or command == "deck_play":
+#             deck = Deck()
+#             deck.make_saboteur_deck()
+#             for el in deck.deck_list:
+#                 print(el.get_name(), end=" ")
+#             print()
+#             while not deck.is_empty():
+#                 card_ = deck.draw_card()
+#                 print(card_.get_name())
+#                 print("location (x + enter + y)")
+#                 location_ = int(input()), int(input())
+#                 assert isinstance(card_, PathCard)
+#                 print(b.place_card(card_, location_))
+#                 b.print_board_with_coords()
+#                 b.print_board_with_ends()
+#
+#         else:
+#             print("Invalid command")
+#
 # play_test()
