@@ -203,24 +203,24 @@ class ViewController:
     def end_screen(self, winner):
 
         # Winner type
-        font = pygame.font.SysFont("comicsansms", 60)
+        font = pygame.font.SysFont("comicsansms", self.names.font_size * 2)
         if winner == sm.Model.SABOTEUR_WIN:
             winner_color = NamesView.RED
             winner_message = font.render("SABOTEURS WIN", True, winner_color, NamesView.BLACK)
         else:
             winner_color = NamesView.GREEN
             winner_message = font.render("GOLD DIGGERS WIN", True, winner_color, NamesView.BLACK)
-        message_rect = winner_message.get_rect(center=(self.screen_size[0] // 2, self.screen_size[1] // 14))
+        message_rect = winner_message.get_rect(center=(self.screen_size[0] // 2, self.names.spacing * 3))
         self.screen.blit(winner_message, message_rect)
 
         # actual Winners
-        font = pygame.font.SysFont("comicsansms", 40)
+        font = pygame.font.SysFont("comicsansms", self.names.font_size )
         winner_list = request_winner_list()
         for index in range(len(winner_list)):
             player_name = winner_list[index]
             name_rendered = font.render(player_name, True, winner_color, NamesView.BLACK)
             name_rect = name_rendered.get_rect(center=(self.screen_size[0] // 2,
-                                                       (self.screen_size[1] // 14) * (index + 3)))
+                                                       self.names.spacing * (index + 6)))
             self.screen.blit(name_rendered, name_rect)
 
     def select(self, element):
@@ -303,8 +303,6 @@ def wait():
 #                                               NamesView Class                                                        #
 ########################################################################################################################
 class NamesView:
-    SPACING = 55
-    FONT_SIZE = 35
 
     WHITE = (255, 255, 255)
     YELLOW = (255, 255, 0)
@@ -318,6 +316,8 @@ class NamesView:
         self.center_x = self.area_size[0] // 2
         self.names = names
         self.nr_names = len(self.names)
+        self.spacing = self.area_size[1] // 14
+        self.font_size = self.area_size[1] // 23
         self.surface = subsurface
         assert isinstance(self.surface, pygame.Surface)
 
@@ -326,13 +326,13 @@ class NamesView:
         self.surface.blit(self.background, (0, 0))
 
         self.names_rendered = []
-        self.font = pygame.font.SysFont("comicsansms", NamesView.FONT_SIZE)
+        self.font = pygame.font.SysFont("comicsansms", self.font_size)
         for index in range(self.nr_names):
             # todo name background rep if it is your turn or not (red = not, green = that players turn)
             # todo name color = blocked by symbol and we will assign colors for symbols
             name_rendered = self.font.render(self.names[index], True, NamesView.BLACK, NamesView.RED)
             self.names_rendered.append(name_rendered)
-            name_rect = name_rendered.get_rect(center=(self.center_x, (index + 2) * NamesView.SPACING))
+            name_rect = name_rendered.get_rect(center=(self.center_x, (index + 2) * self.spacing))
             self.surface.blit(name_rendered, name_rect)
 
 
