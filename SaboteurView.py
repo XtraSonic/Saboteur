@@ -177,7 +177,9 @@ class ViewController:
                                     self.select(self.pressed_element)
                             else:
                                 if region == self.deck_info_area_rect:  # discard card
-                                    make_discard_request(self.selected_card)  # todo
+                                    end = make_discard_request(self.selected_card)  # todo
+                                    if end is not None:
+                                        self.end_screen(end)
 
                                 if region == self.board_area_rect:
                                     end = make_play_path_request(self.selected_card, self.pressed_element)  # todo
@@ -280,14 +282,14 @@ class ViewController:
 #     for element in x:
 #         res += (int(element),)
 #     return res
-
-
-def divide_tuples(dividend, divisor):
-    res = ()
-    for i in range(min(len(dividend), len(divisor))):
-        res += (dividend[i] // divisor[i],)
-    return res
-
+#
+#
+# def divide_tuples(dividend, divisor):
+#     res = ()
+#     for i in range(min(len(dividend), len(divisor))):
+#         res += (dividend[i] // divisor[i],)
+#     return res
+#
 
 def wait():
     while 1:
@@ -436,7 +438,6 @@ class CardView:
             surfarray.blit_array(self.surface, rgb_array * CardView.SHADE_FACTOR)
 
 
-
 ########################################################################################################################
 #                                               BoardView Class                                                        #
 ########################################################################################################################
@@ -483,20 +484,20 @@ class BoardView:
         i, j = adjusted_location // array(self.board_card_size)
         return i, j
 
-    def update(self, location=None):
+    def update(self, positions=None):
         """
 
-        :param location:
+        :param positions:
         :return:
-        :type location: list[tuple of int]
+        :type positions: list[tuple of int]
         """
 
-        if location is None:
+        if positions is None:
             for x in range(len(self.grid_view)):
                 for y in range(len(self.grid_view[x])):
                     self.grid_view[x][y].change_card(self.board.grid[x][y])
         else:
-            for x, y in location:
+            for x, y in positions:
                 self.grid_view[x][y].change_card(self.board.grid[x][y])
 
 
@@ -572,8 +573,13 @@ class HandView:
 ########################################################################################################################
 
 
-# model = sm.Model(["Ana", "Baciu", "Claudiu", "Dani", "Elena", "Fabian", "Gheorghe", "Horea", "Iulia", "Julieta"])
-model = sm.Model(["Ana", "Baciu", "Claudiu"])
+model = sm.Model(["Ana", "Baciu", "Claudiu", "Dani", "Elena", "Fabian", "Gheorghe", "Horea", "Iulia", "Julieta"])
+#model = sm.Model(["Ana", "Baciu", "Claudiu"])
+for player in model.players:
+    player.hand = []
+
+model.players[0].fill_hand(model.deck)
+
 view = ViewController(model.get_active_player(), model.board, model.player_names)
 
 
@@ -591,10 +597,11 @@ def make_discard_request(card_viewed):
 
     print("got to request discard")
     card = card_viewed.card
-
-    print(model.play_turn(card, model.LOCATION_DISCARD))
+    end = model.play_turn(card, model.LOCATION_DISCARD)
+    print(end)
 
     view.update_hand(card_viewed)
+    return end
 
 
 def make_play_path_request(card_viewed, location):

@@ -881,8 +881,7 @@ class Model:
         index_hand = player.hand.index(card)
 
         if position == Model.LOCATION_DISCARD:
-            self.end_turn(player, index_hand)
-            return
+            return self.end_turn(player, index_hand)
 
         if card.card_type == PathCard.PATH:
             if player.is_blocked():
@@ -903,23 +902,19 @@ class Model:
                 self.end_turn(player, index_hand)
                 return reveals, Model.GOLD_DIGGER_WIN
             else:
-                if self.check_saboteur_win():
-                    return reveals, Model.SABOTEUR_WIN
-                self.end_turn(player, index_hand)
-                return reveals, None
+                end = self.end_turn(player, index_hand)
+                return reveals, end
 
         elif card.card_type == Card.SPY:
             if not self.board.grid[position[0]][position[1]].card_type == GoalCard.GOAL:
                 return Model.ERROR_INVALID_LOCATION
             # todo decide how to handle spy: popup or perma reveal
-            self.end_turn(player, index_hand)
-            return
+            return self.end_turn(player, index_hand)
 
         elif card.card_type == Card.DEMOLISH:
             if not self.board.remove_path(position):
                 return Model.ERROR_INVALID_LOCATION
-            self.end_turn(player, index_hand)
-            return
+            return self.end_turn(player, index_hand)
 
         elif card.card_type == BlockUnblockCard.BLOCK:
             if position == self.turn_index or \
@@ -933,8 +928,7 @@ class Model:
             elif block_result == Player.ERROR_ALREADY_BLOCKED_BY_SYMBOL:
                 return Model.ERROR_INVALID_LOCATION
 
-            self.end_turn(player, index_hand)
-            return
+            return self.end_turn(player, index_hand)
 
         elif card.card_type == BlockUnblockCard.UNBLOCK:
             if not (0 <= position < len(self.players)):
@@ -947,8 +941,7 @@ class Model:
             elif block_result == Player.ERROR_NOT_BLOCKED_BY_SYMBOL:
                 return Model.ERROR_INVALID_LOCATION
 
-            self.end_turn(player, index_hand)
-            return
+            return self.end_turn(player, index_hand)
 
         else:
             raise Exception("Something went terribly wrong...\n"
@@ -964,6 +957,8 @@ class Model:
         self.turn_index += 1
         if self.turn_index == self.nr_of_players:
             self.turn_index = 0
+        if self.game_ended is False and self.check_saboteur_win():
+            return Model.SABOTEUR_WIN
 
     def get_active_player(self):
         return self.players[self.turn_index]
