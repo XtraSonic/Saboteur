@@ -203,7 +203,27 @@ class ViewController:
             pygame.display.update()
 
     def end_screen(self, winner):
-        pass
+
+        # Winner type
+        font = pygame.font.SysFont("comicsansms", 60)
+        if winner == sm.Model.SABOTEUR_WIN:
+            winner_color = NamesView.RED
+            winner_message = font.render("SABOTEURS WIN", True, winner_color, NamesView.BLACK)
+        else:
+            winner_color = NamesView.GREEN
+            winner_message = font.render("GOLD DIGGERS WIN", True, winner_color, NamesView.BLACK)
+        message_rect = winner_message.get_rect(center=(self.screen_size[0] // 2, self.screen_size[1] // 14))
+        self.screen.blit(winner_message, message_rect)
+
+        # actual Winners
+        font = pygame.font.SysFont("comicsansms", 40)
+        winner_list = request_winner_list()
+        for index in range(len(winner_list)):
+            player_name = winner_list[index]
+            name_rendered = font.render(player_name, True, winner_color, NamesView.BLACK)
+            name_rect = name_rendered.get_rect(center=(self.screen_size[0] // 2,
+                                                       (self.screen_size[1] // 14) * (index + 3)))
+            self.screen.blit(name_rendered, name_rect)
 
     def select(self, element):
         """
@@ -419,6 +439,7 @@ class CardView:
             surfarray.blit_array(self.surface, rgb_array * CardView.SHADE_FACTOR)
 
 
+
 ########################################################################################################################
 #                                               BoardView Class                                                        #
 ########################################################################################################################
@@ -624,6 +645,21 @@ def make_rotate_request(card_viewed):
     card = card_viewed.card
     model.rotate_card(card)
     view.update_hand(card_viewed)
+
+
+def request_winner_list():
+    if model.game_ended == model.SABOTEUR_WIN:
+        winners = True
+    elif model.game_ended == model.GOLD_DIGGER_WIN:
+        winners = False
+    else:
+        return
+
+    winner_list = []
+    for player in model.players:
+        if player.saboteur == winners:
+            winner_list.append(player.name)
+    return winner_list
 
 
 view.view_game_loop()

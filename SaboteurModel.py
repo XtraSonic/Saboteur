@@ -840,7 +840,9 @@ class Model:
         self.board = Board()
         self.gold_index = random.randrange(NUMBER_OF_GOALS)
 
+        # misc
         self.turn_index = 0
+        self.game_ended = False
 
     def check_end_gold(self):
         start = self.board.grid[self.board.start_location[0]][self.board.start_location[1]]
@@ -855,6 +857,7 @@ class Model:
                     revealed_list.append(self.board.get_goal_position(index))
 
         if self.board.get_goal_position(self.gold_index) in revealed_list:
+            self.game_ended = self.GOLD_DIGGER_WIN
             return revealed_list, True
         else:
             return revealed_list, False
@@ -864,6 +867,7 @@ class Model:
             for player in self.players:
                 if not player.is_empty_hand():  # at least 1 player still has cards
                     return False
+            self.game_ended = Model.SABOTEUR_WIN
             return True
         return False
 
