@@ -4,8 +4,13 @@ import threading
 import pickle
 import os
 
+
 class Server:
     PORT = 4315
+
+    PLAYER_TEMP_FILE = "Player"
+    PLAYER_NAMES_TEMP_FILE = "Player_names"
+    BOARD_TEMP_FILE = "Board"
 
     def __init__(self, nr_of_players):
         self.lock = threading.Lock()
@@ -28,21 +33,48 @@ class Server:
 
     def start_game(self):
         print("Starting game")
+        # pickle names
+        player_names_file = open(Server.PLAYER_NAMES_TEMP_FILE, 'wb')
+        pickle.dump(self.model.player_names, player_names_file)
+        player_names_file.close()
+
+        # pickle board
+        board_file = open(Server.BOARD_TEMP_FILE, 'wb')
+        pickle.dump(self.model.board, board_file)
+        board_file.close()
+
         for index in range(len(self.client_sockets)):
             client_socket = self.client_sockets[index]
             # server is ready
             client_socket.send("START".encode())
 
             # send player object
-            player_file = open("Player" + str(index), 'wb')
+            player_file = open(Server.PLAYER_TEMP_FILE + str(index), 'wb')
             pickle.dump(self.model.players[index], player_file)
             player_file.close()
-            player_file = open("Player" + str(index), "rb")
+            client_socket.send(os.stat(player_file.name).st_size.to_bytes(32, 'big'))  # send size
+            player_file = open(Server.PLAYER_TEMP_FILE + str(index), "rb")
             client_socket.sendfile(player_file)
             player_file.close()
 
+            # send player names
+            client_socket.send(os.stat(player_names_file.name).st_size.to_bytes(32, 'big'))  # send size
+            player_names_file = open(Server.PLAYER_NAMES_TEMP_FILE, "rb")
+            client_socket.sendfile(player_names_file)
+            player_names_file.close()
+
+            # send board
+            client_socket.send(os.stat(board_file.name).st_size.to_bytes(32, 'big'))  # send size
+            board_file = open(Server.BOARD_TEMP_FILE, "rb")
+            client_socket.sendfile(board_file)
+            board_file.close()
+
             # cleanup
-            os.remove("Player" + str(index))
+            os.remove(Server.PLAYER_TEMP_FILE + str(index))
+
+        # cleanup
+        os.remove(Server.PLAYER_NAMES_TEMP_FILE)
+        os.remove(Server.BOARD_TEMP_FILE)
 
         print("Done Sending")
         while threading.active_count() - 1:
@@ -87,11 +119,16 @@ class Server:
         assert isinstance(com_line, socket.SocketType)
         try:
             # wait for the client to be set up
-            ready = com_line.recv(1)
-            if ready == 0:
-                self.remove_client_name(client_id)
-                com_line.close()
-                return
+            while True:
+                ready = com_line.recv(5)
+                if not ready:
+                    self.remove_client_name(client_id)
+                    com_line.close()
+                    return
+                elif ready.decode() == "READY":
+                    break
+                else:
+                    print(client_id, "sent an unknown message:", ready.decode())
 
         except socket.error:
             self.remove_client_name(client_id)
@@ -104,9 +141,10 @@ class Server:
             print("Connection lost for", client_id)
             with self.lock:
                 self.player_names[client_id] = None
+                self.client_sockets[client_id] = None
             return
 
 
 s = Server(3)
-# s.end_listening()
+s.end_listening()
 s.start_game()
