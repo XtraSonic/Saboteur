@@ -19,8 +19,11 @@ class Server:
 
         self.player_names = [None for _ in range(sm.Model.MAX_PLAYERS)]
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ip = socket.gethostbyname(socket.gethostname())
+        self.server_socket.bind((ip, Server.PORT))
         print(socket.gethostname())
-        self.server_socket.bind((socket.gethostname(), Server.PORT))
+        print(ip)
+
         self.server_socket.listen(10)
         self.nr_of_players = nr_of_players
         self.client_sockets = [None for _ in range(self.nr_of_players)]
