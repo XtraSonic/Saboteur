@@ -3,13 +3,14 @@ import pygame.surfarray as surfarray
 from pygame.locals import *
 from numpy import *
 import SaboteurModel as sm
+import threading
 
 # Initialize pygame
 pygame.init()
 pygame.font.init()
 
 
-class ViewController:
+class ViewController:#(threading.Thread):
     # <editor-fold desc="View constants -> file paths">
     FILE_HAND_AREA_BACKGROUND = "Resources/CardAreaBackground.png"
     FILE_PLAYER_LIST_AREA_BACKGROUND = "Resources/PlayerListBackground.png"
@@ -70,7 +71,7 @@ class ViewController:
 
     # </editor-fold>
 
-    def __init__(self, player, board, names_list, client_object):
+    def __init__(self, player, board, names_list, parent):
         """
 
         :param player:
@@ -78,10 +79,10 @@ class ViewController:
         :param board:
         :type board: sm.Board
         """
-
+        self.parent = parent
+        #threading.Thread.__init__(self)
         self.player = player
         self.names_list = names_list
-        self.client_object = client_object
 
         # Set window to full screen and get screen info
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -143,10 +144,14 @@ class ViewController:
         """:type selected_card: CardView | None"""
         self.pressed_element = None
         self.prepare_rotate = False
+        self.active = False
 
-    def play_turn_loop(self):
+    def run(self):
+        print(threading.get_ident(), self.player.name, "started the loop")
+        self.active = False
         while True:
             event = pygame.event.wait()
+            print(event)
             if event.type == pygame.MOUSEBUTTONDOWN:
                 clicks = pygame.mouse.get_pressed()
 
@@ -174,17 +179,17 @@ class ViewController:
                             if region == self.hand_area_rect:
                                 self.select(self.pressed_element)
                         else:
-                            if region == self.deck_info_area_rect:  # discard card
-                                index = self.hand.cards_viewed.index(self.selected_card)
-                                response = self.client_object.make_discard_request(index)  # todo
-                                if response is None:
-                                    pygame.display.update()
-                                    return
+                            if self.active:
+                                if region == self.deck_info_area_rect:  # discard card
+                                    index = self.hand.cards_viewed.index(self.selected_card)
+                                    response = self.parent.make_discard_request(index)
+                                    if response is None:
+                                        pass  # todo add message
 
-                            if region == self.board_area_rect:
-                                end = make_play_path_request(self.selected_card, self.pressed_element)  # todo
-                                if end:
-                                    self.end_screen(end)
+                                if region == self.board_area_rect:
+                                    end = make_play_path_request(self.selected_card, self.pressed_element)  # todo
+                                    if end:
+                                        self.end_screen(end)
                             self.deselect()
                     self.pressed_element = None
 
@@ -199,6 +204,7 @@ class ViewController:
             if event.type == pygame.KEYDOWN and event.key == K_SPACE:
                 self.end_view()
             pygame.display.update()
+            print("\n\t\t\tscreen was updated\n")
 
     def end_screen(self, winner):
 
@@ -576,14 +582,29 @@ class HandView:
 ########################################################################################################################
 
 #
-# model = sm.Model(["Ana", "Baciu", "Claudiu", "Dani", "Elena", "Fabian", "Gheorghe", "Horea", "Iulia", "Julieta"])
-# #model = sm.Model(["Ana", "Baciu", "Claudiu"])
-# for player in model.players:
-#     player.hand = []
-#
-# model.players[0].fill_hand(model.deck)
-#
-# view = ViewController(model.get_active_player(), model.board, model.player_names)
+model = sm.Model(["Ana", "Baciu", "Claudiu", "Dani", "Elena", "Fabian", "Gheorghe", "Horea", "Iulia", "Julieta"])
+#model = sm.Model(["Ana", "Baciu", "Claudiu"])
+for player in model.players:
+    player.hand = []
+
+model.players[0].fill_hand(model.deck)
+
+#view = ViewController(model.get_active_player(), model.board, model.player_names, None)
+#view.run()
+#view.start()
+
+
+class test(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        self.view = ViewController(model.get_active_player(), model.board, model.player_names, None)
+
+    def run(self):
+        self.view.run()
+
+t=test()
+t.start()
+
 #
 #
 # def make_discard_request(card_viewed):

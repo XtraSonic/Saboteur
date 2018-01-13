@@ -189,6 +189,6 @@ class Server:
             return
 
 
-_s = Server(3)
-_s.end_listening()
-_s.start_game()
+# _s = Server(3)
+# _s.end_listening()
+# _s.start_game()
