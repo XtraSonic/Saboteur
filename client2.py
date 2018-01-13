@@ -16,14 +16,19 @@ def bytes_to_int(bytes_):
 class Client:
     PLAYER_TEMP_FILE = "Player_temp"
     PLAYER_NAMES_TEMP_FILE = "Player_names_temp"
-    BOARD_TEMP_FILE = "Player_names_temp"
+    BOARD_TEMP_FILE = "Board_temp"
+    CARD_TEMP_FILE = "Card_temp"
+
+    ERROR_NOT_TURN = -1
 
     def __init__(self, name, server_address):
         assert isinstance(name, str)
         self.local_player_file = Client.PLAYER_TEMP_FILE + name
         self.local_player_names_file = Client.PLAYER_NAMES_TEMP_FILE + name
         self.local_board_file = Client.BOARD_TEMP_FILE + name
-        self.view = []
+        self.local_card_file = Client.CARD_TEMP_FILE + name
+        self.view = None
+        """:type view: sv.ViewController"""
         self.name = name
         self.server_address = server_address
         try:
@@ -132,7 +137,7 @@ class Client:
             if not msg:
                 board_file.close()
                 os.remove(self.local_board_file)
-                print("No player names data recieved... Suicide is the only oprion :'( ")
+                print("No board data recieved... Suicide is the only oprion :'( ")
                 self.end_client()
             board_file.write(msg)
         except socket.error:
@@ -151,8 +156,64 @@ class Client:
 
         self.client_socket.send("READY".encode())
 
-        self.view = sv.ViewController(player, board, player_names)
-        self.view.view_game_loop()
+        self.view = sv.ViewController(player, board, player_names, self)
+        # self.view.play_turn_loop()
+
+        while True:
+            msg = self.client_socket.recv(64).decode()
+            if msg == "YOUR TURN":
+                print(self.name, "It is my turn")
+                self.view.play_turn_loop()
+            else:
+                print("The server sent an unknown message:", msg)
+
+    def make_discard_request(self, index):
+        # send request
+        message = "DISCARD," + str(index)
+        print(self.name, "sending discard request:", message)
+        self.client_socket.send(message.encode())
+
+        # recieve response
+        message = self.client_socket.recv(64).decode()
+        print(self.name, "got the response", message)
+        if message == "OK":
+            card = self.receive_card()
+            self.view.update_hand(index, card)
+            return None
+        elif message == "NOT YOUR TURN":
+            print("Not my turn", self.name)
+            return Client.ERROR_NOT_TURN
+        else:
+            print("UHM, Why am i here ?")
+            return "WTF"
+
+    def receive_card(self):
+        print()
+        card_temp_file = open(self.local_card_file, "wb")
+        try:
+            msg_size = bytes_to_int(self.client_socket.recv(32))
+            print("got the size", msg_size)
+            msg = self.client_socket.recv(msg_size)
+            if not msg:
+                card_temp_file.close()
+                os.remove(self.local_card_file)
+                print("No card data recieved... Suicide is the only oprion :'( ")
+                self.end_client()
+            card_temp_file.write(msg)
+        except socket.error:
+            card_temp_file.close()
+            os.remove(self.local_card_file)
+            print("Something went terribly wrong...")
+            self.end_client()
+        card_temp_file.close()
+        card_temp_file = open(self.local_card_file, "rb")
+        card = pickle.load(card_temp_file)
+        card_temp_file.close()
+        assert isinstance(card, sm.Card) or card is None
+        print("Card obj received succesfully", card)
+        # cleanup
+        os.remove(self.local_card_file)
+        return card
 
     def end_client(self):
         self.client_socket.close()
