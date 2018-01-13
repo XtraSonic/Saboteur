@@ -70,7 +70,7 @@ class ViewController:
 
     # </editor-fold>
 
-    def __init__(self, player, board, names_list):
+    def __init__(self, player, board, names_list, client_object):
         """
 
         :param player:
@@ -81,6 +81,7 @@ class ViewController:
 
         self.player = player
         self.names_list = names_list
+        self.client_object = client_object
 
         # Set window to full screen and get screen info
         self.screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
@@ -140,65 +141,64 @@ class ViewController:
         pygame.display.update()
         self.selected_card = None
         """:type selected_card: CardView | None"""
-        self.active_player = True  # todo set to false
         self.pressed_element = None
         self.prepare_rotate = False
 
-    def view_game_loop(self):
+    def play_turn_loop(self):
         while True:
             event = pygame.event.wait()
-            if self.active_player:
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                clicks = pygame.mouse.get_pressed()
 
-                if event.type == pygame.MOUSEBUTTONDOWN:
-                    clicks = pygame.mouse.get_pressed()
+                if clicks[0]:
+                    location = pygame.mouse.get_pos()
+                    self.pressed_element, _ = self.get_element_at(location)
+                    if self.pressed_element is None:
+                        self.deselect()
 
-                    if clicks[0]:
-                        location = pygame.mouse.get_pos()
-                        self.pressed_element, _ = self.get_element_at(location)
-                        if self.pressed_element is None:
+                if clicks[2]:
+                    self.prepare_rotate = True
+
+            if event.type == pygame.MOUSEBUTTONUP:
+                clicks = pygame.mouse.get_pressed()
+
+                if not clicks[0]:
+                    location = pygame.mouse.get_pos()
+                    released_element, region = self.get_element_at(location)
+
+                    if released_element is not None and self.pressed_element == released_element:
+
+                        # full click on one element
+
+                        if self.selected_card is None:
+                            if region == self.hand_area_rect:
+                                self.select(self.pressed_element)
+                        else:
+                            if region == self.deck_info_area_rect:  # discard card
+                                index = self.hand.cards_viewed.index(self.selected_card)
+                                response = self.client_object.make_discard_request(index)  # todo
+                                if response is None:
+                                    pygame.display.update()
+                                    return
+
+                            if region == self.board_area_rect:
+                                end = make_play_path_request(self.selected_card, self.pressed_element)  # todo
+                                if end:
+                                    self.end_screen(end)
                             self.deselect()
+                    self.pressed_element = None
 
-                    if clicks[2]:
-                        self.prepare_rotate = True
+                if not clicks[2]:
+                    if self.prepare_rotate:
+                        if self.selected_card:
+                            make_rotate_request(self.selected_card)
+                            self.select(self.selected_card)
+                        self.prepare_rotate = False
 
-                if event.type == pygame.MOUSEBUTTONUP:
-                    clicks = pygame.mouse.get_pressed()
-
-                    if not clicks[0]:
-                        location = pygame.mouse.get_pos()
-                        released_element, region = self.get_element_at(location)
-
-                        if released_element is not None and self.pressed_element == released_element:
-
-                            # full click on one element
-
-                            if self.selected_card is None:
-                                if region == self.hand_area_rect:
-                                    self.select(self.pressed_element)
-                            else:
-                                if region == self.deck_info_area_rect:  # discard card
-                                    end = make_discard_request(self.selected_card)  # todo
-                                    if end is not None:
-                                        self.end_screen(end)
-
-                                if region == self.board_area_rect:
-                                    end = make_play_path_request(self.selected_card, self.pressed_element)  # todo
-                                    if end:
-                                        self.end_screen(end)
-                                self.deselect()
-                        self.pressed_element = None
-
-                    if not clicks[2]:
-                        if self.prepare_rotate:
-                            if self.selected_card:
-                                make_rotate_request(self.selected_card)
-                                self.select(self.selected_card)
-                            self.prepare_rotate = False
-
-                    # todo remove this
-                if event.type == pygame.KEYDOWN and event.key == K_SPACE:
-                    self.end_view()
-                pygame.display.update()
+                # todo remove this
+            if event.type == pygame.KEYDOWN and event.key == K_SPACE:
+                self.end_view()
+            pygame.display.update()
 
     def end_screen(self, winner):
 
@@ -262,8 +262,8 @@ class ViewController:
 
         return None, None
 
-    def update_hand(self, card_viewed):
-        self.hand.update(card_viewed)
+    def update_hand(self, index, card):
+        self.hand.update(index, card)
         # pygame.display.update()  # todo update only a rect, but it`s too bothersome (considering time left)
         pass
 
@@ -546,10 +546,13 @@ class HandView:
                     return None
         return None
 
-    def update(self, card_viewed):
-        index = self.cards_viewed.index(card_viewed)
+    def update(self, hand_index, card):
+        card_viewed = self.cards_viewed[hand_index]
+        print("\t\tUpdating hand with", hand_index, card)
+        if card is None:
+            self.cards.pop(hand_index)
         if len(self.cards) == self.nr_cards:
-            self.cards_viewed[index].change_card(self.cards[index])
+            self.cards_viewed[hand_index].change_card(card)
             return
         else:
             card_viewed.active = False
@@ -572,102 +575,102 @@ class HandView:
 #                                               playing/testing funcions                                               #
 ########################################################################################################################
 
+#
+# model = sm.Model(["Ana", "Baciu", "Claudiu", "Dani", "Elena", "Fabian", "Gheorghe", "Horea", "Iulia", "Julieta"])
+# #model = sm.Model(["Ana", "Baciu", "Claudiu"])
+# for player in model.players:
+#     player.hand = []
+#
+# model.players[0].fill_hand(model.deck)
+#
+# view = ViewController(model.get_active_player(), model.board, model.player_names)
+#
+#
+# def make_discard_request(card_viewed):
+#     """
+#
+#     :param card_viewed:
+#     :type card_viewed: CardView
+#     :return:
+#     """
+#
+#     # todo delete
+#     #  force same turn
+#     model.turn_index = 0
+#
+#     print("got to request discard")
+#     card = card_viewed.card
+#     end = model.play_turn(card, model.LOCATION_DISCARD)
+#     print(end)
+#
+#     view.update_hand(card_viewed)
+#     return end
+#
+#
+# def make_play_path_request(card_viewed, location):
+#     """
+#
+#     :param location:
+#     :type location: tuple of int
+#     :param card_viewed:
+#     :type card_viewed: CardView
+#     :return:
+#     """
+#
+#     # force same turn
+#     model.turn_index = 0
+#
+#     print("got to request play path, glod @", model.gold_index)
+#
+#     card = card_viewed.card
+#     print(location)
+#     res, win = model.play_turn(card, location)
+#     print(res)
+#     model.board.print_board_with_coords()
+#     model.board.print_board_with_ends()
+#     if res != model.ERROR_INVALID_LOCATION:
+#         positions = [location]
+#         view.update_board(positions + res)
+#     if win is not None:
+#         if win == model.SABOTEUR_WIN:
+#             print("SABOTEURS WIN")
+#         else:
+#             print("GD WIN")
+#     view.update_hand(card_viewed)
+#
+#     return win
+#
+#
+# def make_rotate_request(card_viewed):
+#     """
+#
+#     :param card_viewed:
+#     :type card_viewed: CardView
+#     :return:
+#     """
+#
+#     print("Got to rotate request")
+#
+#     card = card_viewed.card
+#     model.rotate_card(card)
+#     view.update_hand(card_viewed)
+#
+#
+# def request_winner_list():
+#     if model.game_ended == model.SABOTEUR_WIN:
+#         winners = True
+#     elif model.game_ended == model.GOLD_DIGGER_WIN:
+#         winners = False
+#     else:
+#         return
+#
+#     winner_list = []
+#     for player in model.players:
+#         if player.saboteur == winners:
+#             winner_list.append(player.name)
+#     return winner_list
+#
 
-model = sm.Model(["Ana", "Baciu", "Claudiu", "Dani", "Elena", "Fabian", "Gheorghe", "Horea", "Iulia", "Julieta"])
-#model = sm.Model(["Ana", "Baciu", "Claudiu"])
-for player in model.players:
-    player.hand = []
-
-model.players[0].fill_hand(model.deck)
-
-view = ViewController(model.get_active_player(), model.board, model.player_names)
-
-
-def make_discard_request(card_viewed):
-    """
-
-    :param card_viewed:
-    :type card_viewed: CardView
-    :return:
-    """
-
-    # todo delete
-    #  force same turn
-    model.turn_index = 0
-
-    print("got to request discard")
-    card = card_viewed.card
-    end = model.play_turn(card, model.LOCATION_DISCARD)
-    print(end)
-
-    view.update_hand(card_viewed)
-    return end
-
-
-def make_play_path_request(card_viewed, location):
-    """
-
-    :param location:
-    :type location: tuple of int
-    :param card_viewed:
-    :type card_viewed: CardView
-    :return:
-    """
-
-    # force same turn
-    model.turn_index = 0
-
-    print("got to request play path, glod @", model.gold_index)
-
-    card = card_viewed.card
-    print(location)
-    res, win = model.play_turn(card, location)
-    print(res)
-    model.board.print_board_with_coords()
-    model.board.print_board_with_ends()
-    if res != model.ERROR_INVALID_LOCATION:
-        positions = [location]
-        view.update_board(positions + res)
-    if win is not None:
-        if win == model.SABOTEUR_WIN:
-            print("SABOTEURS WIN")
-        else:
-            print("GD WIN")
-    view.update_hand(card_viewed)
-
-    return win
-
-
-def make_rotate_request(card_viewed):
-    """
-
-    :param card_viewed:
-    :type card_viewed: CardView
-    :return:
-    """
-
-    print("Got to rotate request")
-
-    card = card_viewed.card
-    model.rotate_card(card)
-    view.update_hand(card_viewed)
-
-
-def request_winner_list():
-    if model.game_ended == model.SABOTEUR_WIN:
-        winners = True
-    elif model.game_ended == model.GOLD_DIGGER_WIN:
-        winners = False
-    else:
-        return
-
-    winner_list = []
-    for player in model.players:
-        if player.saboteur == winners:
-            winner_list.append(player.name)
-    return winner_list
-
-
-view.view_game_loop()
-
-wait()
+# view.play_turn_loop()
+#
+# wait()
