@@ -572,102 +572,102 @@ class HandView:
 #                                               playing/testing funcions                                               #
 ########################################################################################################################
 
+#
+# model = sm.Model(["Ana", "Baciu", "Claudiu", "Dani", "Elena", "Fabian", "Gheorghe", "Horea", "Iulia", "Julieta"])
+# #model = sm.Model(["Ana", "Baciu", "Claudiu"])
+# for player in model.players:
+#     player.hand = []
+#
+# model.players[0].fill_hand(model.deck)
+#
+# view = ViewController(model.get_active_player(), model.board, model.player_names)
+#
+#
+# def make_discard_request(card_viewed):
+#     """
+#
+#     :param card_viewed:
+#     :type card_viewed: CardView
+#     :return:
+#     """
+#
+#     # todo delete
+#     #  force same turn
+#     model.turn_index = 0
+#
+#     print("got to request discard")
+#     card = card_viewed.card
+#     end = model.play_turn(card, model.LOCATION_DISCARD)
+#     print(end)
+#
+#     view.update_hand(card_viewed)
+#     return end
+#
+#
+# def make_play_path_request(card_viewed, location):
+#     """
+#
+#     :param location:
+#     :type location: tuple of int
+#     :param card_viewed:
+#     :type card_viewed: CardView
+#     :return:
+#     """
+#
+#     # force same turn
+#     model.turn_index = 0
+#
+#     print("got to request play path, glod @", model.gold_index)
+#
+#     card = card_viewed.card
+#     print(location)
+#     res, win = model.play_turn(card, location)
+#     print(res)
+#     model.board.print_board_with_coords()
+#     model.board.print_board_with_ends()
+#     if res != model.ERROR_INVALID_LOCATION:
+#         positions = [location]
+#         view.update_board(positions + res)
+#     if win is not None:
+#         if win == model.SABOTEUR_WIN:
+#             print("SABOTEURS WIN")
+#         else:
+#             print("GD WIN")
+#     view.update_hand(card_viewed)
+#
+#     return win
+#
+#
+# def make_rotate_request(card_viewed):
+#     """
+#
+#     :param card_viewed:
+#     :type card_viewed: CardView
+#     :return:
+#     """
+#
+#     print("Got to rotate request")
+#
+#     card = card_viewed.card
+#     model.rotate_card(card)
+#     view.update_hand(card_viewed)
+#
+#
+# def request_winner_list():
+#     if model.game_ended == model.SABOTEUR_WIN:
+#         winners = True
+#     elif model.game_ended == model.GOLD_DIGGER_WIN:
+#         winners = False
+#     else:
+#         return
+#
+#     winner_list = []
+#     for player in model.players:
+#         if player.saboteur == winners:
+#             winner_list.append(player.name)
+#     return winner_list
+#
 
-model = sm.Model(["Ana", "Baciu", "Claudiu", "Dani", "Elena", "Fabian", "Gheorghe", "Horea", "Iulia", "Julieta"])
-#model = sm.Model(["Ana", "Baciu", "Claudiu"])
-for player in model.players:
-    player.hand = []
-
-model.players[0].fill_hand(model.deck)
-
-view = ViewController(model.get_active_player(), model.board, model.player_names)
-
-
-def make_discard_request(card_viewed):
-    """
-
-    :param card_viewed:
-    :type card_viewed: CardView
-    :return:
-    """
-
-    # todo delete
-    #  force same turn
-    model.turn_index = 0
-
-    print("got to request discard")
-    card = card_viewed.card
-    end = model.play_turn(card, model.LOCATION_DISCARD)
-    print(end)
-
-    view.update_hand(card_viewed)
-    return end
-
-
-def make_play_path_request(card_viewed, location):
-    """
-
-    :param location:
-    :type location: tuple of int
-    :param card_viewed:
-    :type card_viewed: CardView
-    :return:
-    """
-
-    # force same turn
-    model.turn_index = 0
-
-    print("got to request play path, glod @", model.gold_index)
-
-    card = card_viewed.card
-    print(location)
-    res, win = model.play_turn(card, location)
-    print(res)
-    model.board.print_board_with_coords()
-    model.board.print_board_with_ends()
-    if res != model.ERROR_INVALID_LOCATION:
-        positions = [location]
-        view.update_board(positions + res)
-    if win is not None:
-        if win == model.SABOTEUR_WIN:
-            print("SABOTEURS WIN")
-        else:
-            print("GD WIN")
-    view.update_hand(card_viewed)
-
-    return win
-
-
-def make_rotate_request(card_viewed):
-    """
-
-    :param card_viewed:
-    :type card_viewed: CardView
-    :return:
-    """
-
-    print("Got to rotate request")
-
-    card = card_viewed.card
-    model.rotate_card(card)
-    view.update_hand(card_viewed)
-
-
-def request_winner_list():
-    if model.game_ended == model.SABOTEUR_WIN:
-        winners = True
-    elif model.game_ended == model.GOLD_DIGGER_WIN:
-        winners = False
-    else:
-        return
-
-    winner_list = []
-    for player in model.players:
-        if player.saboteur == winners:
-            winner_list.append(player.name)
-    return winner_list
-
-
-view.view_game_loop()
-
-wait()
+# view.view_game_loop()
+#
+# wait()
