@@ -829,12 +829,13 @@ class Model:
         self.nr_of_players = len(player_names)
         if not (Model.MIN_PLAYERS <= self.nr_of_players <= Model.MAX_PLAYERS):
             raise Exception("Can not create a model with " + str(self.nr_of_players) + " players")
-        (self.nr_saboteurs, self.nr_gold_diggers), max_hand_size = Model.NR_PLAYERS_DICTIONARY.get(self.nr_of_players)
+        ((self.nr_saboteurs, self.nr_gold_diggers),
+            self.max_hand_size) = Model.NR_PLAYERS_DICTIONARY.get(self.nr_of_players)
         player_roles = [False for _ in range(self.nr_of_players + 1)]
         for i in range(self.nr_saboteurs):
             player_roles[i] = True
         random.shuffle(player_roles)
-        self.players = [Player(element[0], element[1], max_hand_size) for element in zip(player_names, player_roles)]
+        self.players = [Player(element[0], element[1], self.max_hand_size) for element in zip(player_names, player_roles)]
         for player in self.players:
             if player.fill_hand(self.deck) == Player.ERROR_DECK_IS_EMPTY:
                 raise Exception("Could not fill the hands of the players with the default deck")
@@ -874,11 +875,11 @@ class Model:
             return True
         return False
 
-    def play_turn(self, card, position):
+    def play_turn(self, index_hand, position):
         player = self.players[self.turn_index]
-        # card = player.hand[index_hand]
-        # """:type : Card | PathCard | BlockUnblockCard"""
-        index_hand = player.hand.index(card)
+        card = player.hand[index_hand]
+        """:type card: Card | PathCard | BlockUnblockCard"""
+        # index_hand = player.hand.index(card)
 
         if position == Model.LOCATION_DISCARD:
             return self.end_turn(player, index_hand)

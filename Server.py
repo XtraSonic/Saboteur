@@ -2,6 +2,7 @@ import socket
 import SaboteurModel as sm
 import threading
 import pickle
+import time
 import os
 
 
@@ -11,6 +12,7 @@ class Server:
     PLAYER_TEMP_FILE = "Player"
     PLAYER_NAMES_TEMP_FILE = "Player_names"
     BOARD_TEMP_FILE = "Board"
+    CARD_TEMP_FILE = "Card"
 
     def __init__(self, nr_of_players):
         self.lock = threading.Lock()
@@ -77,8 +79,10 @@ class Server:
         os.remove(Server.BOARD_TEMP_FILE)
 
         print("Done Sending")
+        self.notify_active_player()
         while threading.active_count() - 1:
             pass
+
 
     def end_listening(self):
         self.server_socket.close()
@@ -137,6 +141,46 @@ class Server:
 
         print("GAME STARTED FOR ", client_id)
 
+        # Requests loop
+        while not self.model.game_ended:
+            command = com_line.recv(64).decode()
+            with self.lock:
+                if not self.model.turn_index == client_id:
+                    print(self.player_names[client_id],client_id, "tried to ", command)
+                    com_line.send("NOT YOUR TURN".encode())
+                    continue
+            assert isinstance(command, str)
+            command = command.split(",")
+            with self.lock:
+                print(self.player_names[client_id], "made this request", command)
+                if command[0] == "DISCARD":
+                    com_line.send("OK".encode())
+                    time.sleep(0.1)
+                    hand_index = int(command[1])
+                    self.model.play_turn(hand_index, self.model.LOCATION_DISCARD)
+                    if len(self.model.players[client_id].hand) == self.model.max_hand_size:
+                        self.send_hand_card(self.model.players[client_id].hand[hand_index], client_id)
+                    else:
+                        self.send_hand_card(None, client_id)
+                if self.model.game_ended:  # TODO
+                    print("SOMEONE WON", self.model.game_ended)
+                self.notify_active_player()
+
+    def notify_active_player(self):
+        self.client_sockets[self.model.turn_index].send("YOUR TURN".encode())
+
+    def send_hand_card(self, card, id_to):
+        print()
+        print("Sending", card, "to", self.player_names[id_to])
+        card_file = open(Server.CARD_TEMP_FILE, 'wb')
+        pickle.dump(card, card_file)
+        card_file.close()
+        self.client_sockets[id_to].send(os.stat(card_file.name).st_size.to_bytes(32, 'big'))  # send size
+        card_file = open(Server.CARD_TEMP_FILE, "rb")
+        self.client_sockets[id_to].sendfile(card_file)
+        card_file.close()
+        os.remove(self.CARD_TEMP_FILE)
+
     def remove_client_name(self, client_id):
             print("Connection lost for", client_id)
             with self.lock:
@@ -145,6 +189,6 @@ class Server:
             return
 
 
-s = Server(3)
-s.end_listening()
-s.start_game()
+_s = Server(3)
+_s.end_listening()
+_s.start_game()
