@@ -16,6 +16,15 @@ class Server:
         self.server_socket.listen(10)
         self.game_started = False
         self.nr_of_players = nr_of_players
+        self.start()
+        while None in self.player_names:
+            self.player_names.remove(None)
+
+        self.model = sm.Model(self.player_names)
+        # todo
+        print("ALL GOOD YOU BASTARTD ;)")
+        self.server_socket.close()
+
 
     def start(self):
         while not self.game_started:
@@ -32,14 +41,6 @@ class Server:
 
             if threading.active_count() - 1 == self.nr_of_players:
                 self.game_started = True
-
-        while None in self.player_names:
-            self.player_names.remove(None)
-
-        self.model = sm.Model(self.player_names)
-        # todo
-        print("ALL GOOD YOU BASTARTD ;)")
-        self.server_socket.close()
 
     def get_first_available_index(self, name):
         i = 0
