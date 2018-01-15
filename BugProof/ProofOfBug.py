@@ -73,6 +73,8 @@ class test(threading.Thread):
 
 
 t = test()
-t.run()
+t.run()  # run makes the screen function, but does not start a new thread (we don`t get to ok)
+# t.start()  # start (without run before it) makes the new thread, but the window becomes unresponsive
+             # (we get to ok, but the window doesn`t work
 while True:
     print("OK")
